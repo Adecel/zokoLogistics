@@ -1,0 +1,87 @@
+# Demo: every push to main rebuilds the web version and publishes it
+# to Expo Hosting (https://<your-name>.expo.app).
+#
+# One-time setup: see docs/demo.md
+#   - GitHub secrets: EXPO_TOKEN, EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+#   - app.json linked to an Expo project (npx eas-cli init) and a subdomain chosen once
+
+name: Deploy demo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # "Run workflow" button in the Actions tab
+
+# One deploy at a time; a newer push replaces a deploy still waiting
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Built into the web bundle (public by design: publishable key, protected by RLS)
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check secrets
+        run: |
+          missing=0
+          for name in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::Secret $name is missing (Settings > Secrets and variables > Actions)"; missing=1; fi
+          done
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then echo "::error::Secret EXPO_TOKEN is missing"; missing=1; fi
+          exit $missing
+
+      # Stop before publishing if the demo could not talk to Supabase
+      - name: Check the Supabase connection
+        run: |
+          U="$EXPO_PUBLIC_SUPABASE_URL"; K="$EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          call() { curl -s -o out.json -w "%{http_code}" -H "apikey: $K" -H "Authorization: Bearer $K" -H "Content-Type: application/json" "$@"; }
+
+          code=$(call -X POST "$U/rest/v1/rpc/vehicle_catalog" -d '{}')
+          if [ "$code" != "200" ]; then
+            echo "::error::Supabase does not answer (HTTP $code). Check the EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY secrets."
+            cat out.json; exit 1
+          fi
+          echo "Supabase OK: vehicle catalogue loaded"
+
+          # Functions added by the migrations: "permission denied" (401) = present; 404 = migration not run
+          check() {
+            code=$(call -X POST "$U/rest/v1/rpc/$1" -d "$2")
+            if [ "$code" = "404" ]; then echo "::warning::Function $1 is missing: run supabase/migrations/$3 in the Supabase SQL Editor."; else echo "Migration $3: OK"; fi
+          }
+          check available_drivers '{"p_start":"2030-01-01T08:00:00Z","p_duration":6}' 20261124120000_driver_choice.sql
+          check dashboard_stats '{}' 20261124130000_dashboard.sql
+          rm -f out.json
+
+      - run: npm ci
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build the web version
+        run: npx expo export --platform web
+
+      - name: Check the Supabase address is inside the build
+        run: |
+          host=$(echo "$EXPO_PUBLIC_SUPABASE_URL" | sed -E 's#^https?://##; s#/.*$##')
+          if ! grep -rqF "$host" dist; then
+            echo "::error::The build does not contain the Supabase address: the demo would show 'database not configured'."
+            exit 1
+          fi
+          echo "Supabase address found in the build"
+
+      - name: Publish to Expo Hosting (production URL)
+        run: eas deploy --prod --non-interactive
