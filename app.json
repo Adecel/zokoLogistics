@@ -48,6 +48,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "819790f2-660f-4b1e-93de-150daab8621e"
+      }
+    },
+    "owner": "adecel"
   }
 }
