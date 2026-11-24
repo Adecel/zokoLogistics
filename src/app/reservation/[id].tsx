@@ -41,6 +41,10 @@ type Reservation = {
   cancellation_reason: string | null;
   actual_start_at: string | null;
   actual_end_at: string | null;
+  with_driver: boolean;
+  driver_name: string | null;
+  driver_phone: string | null;
+  client_license_number: string | null;
 };
 
 type Payment = {
@@ -56,7 +60,7 @@ type Payment = {
 const RESERVATION_FIELDS =
   'id, reference, status, start_at, end_at, duration_hours, pickup_address, dropoff_address, contact_phone, model_id, model_name, ' +
   'promotion_code, discount_amount, amount_due, amount_paid, amount_refunded, balance, created_at, confirmed_at, cancelled_at, ' +
-  'cancellation_reason, actual_start_at, actual_end_at';
+  'cancellation_reason, actual_start_at, actual_end_at, with_driver, driver_name, driver_phone, client_license_number';
 
 export default function ReservationStatusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -145,7 +149,9 @@ function headline(
         icon: 'checkmark',
         kind: 'success',
         title: 'Réservation confirmée !',
-        text: 'Votre véhicule et votre chauffeur sont réservés. Nous vous contacterons avant le départ.',
+        text: r.with_driver
+          ? 'Votre véhicule et votre chauffeur sont réservés. Nous vous contacterons avant le départ.'
+          : 'Votre véhicule est réservé. Pensez à votre permis de conduire le jour de la prise en charge.',
       };
     case 'in_progress':
       return { icon: 'car-sport', kind: 'info', title: 'Location en cours', text: 'Bonne route avec Zoko !' };
@@ -166,14 +172,21 @@ function headline(
         text: r.cancellation_reason ?? 'Nous ne pouvons pas assurer cette réservation. Contactez-nous pour une autre date.',
       };
     case 'no_show':
-      return { icon: 'alert', kind: 'danger', title: 'Client absent', text: 'Le chauffeur ne vous a pas trouvé au rendez-vous.' };
+      return {
+        icon: 'alert',
+        kind: 'danger',
+        title: 'Client absent',
+        text: r.with_driver
+          ? 'Le chauffeur ne vous a pas trouvé au rendez-vous.'
+          : 'Notre agent ne vous a pas trouvé au rendez-vous.',
+      };
     default:
       if (cashPending) {
         return {
           icon: 'cash-outline',
           kind: 'waiting',
           title: 'Réservation enregistrée !',
-          text: 'Vous paierez en espèces au chauffeur au moment de la prise en charge. Un agent va confirmer votre réservation ; vous recevrez une notification.',
+          text: `Vous paierez en espèces ${r.with_driver ? 'au chauffeur' : 'à notre agent'} au moment de la prise en charge. Un agent va confirmer votre réservation ; vous recevrez une notification.`,
         };
       }
       if (paymentPending) {
@@ -327,7 +340,9 @@ function StatusView({
           <VehicleImage uri={photo} size={36} style={styles.vehicleImage} />
           <View style={styles.flex1}>
             <Text style={styles.vehicleName}>{r.model_name}</Text>
-            <Text style={styles.muted}>Avec chauffeur · {r.duration_hours} h</Text>
+            <Text style={styles.muted}>
+              {r.with_driver ? 'Avec chauffeur' : 'Sans chauffeur'} · {r.duration_hours} h
+            </Text>
           </View>
         </View>
 
@@ -337,6 +352,23 @@ function StatusView({
           <Row icon="location-outline" label="Prise en charge" value={r.pickup_address} />
           {r.dropoff_address ? <Row icon="flag-outline" label="Restitution" value={r.dropoff_address} /> : null}
           <Row icon="call-outline" label="Contact" value={r.contact_phone} />
+          {r.with_driver ? (
+            <Row
+              icon="person-outline"
+              label="Chauffeur"
+              value={
+                r.driver_name
+                  ? r.driver_name + (r.driver_phone ? ` · ${r.driver_phone}` : '')
+                  : 'Attribué par Zoko à la confirmation'
+              }
+            />
+          ) : (
+            <Row
+              icon="card-outline"
+              label="Sans chauffeur · votre permis"
+              value={r.client_license_number ?? '—'}
+            />
+          )}
         </View>
 
         {/* Progress */}

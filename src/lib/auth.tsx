@@ -10,6 +10,17 @@ export type Profile = {
   phone: string | null;
   email: string | null;
   role: 'client' | 'manager' | 'agent' | 'driver' | 'accountant' | 'admin';
+  is_active: boolean;
+  // Role asked for when signing up on the dashboard, waiting for an admin
+  requested_role: Profile['role'] | null;
+};
+
+type SignUpInput = {
+  fullName: string;
+  phone: string;
+  email: string;
+  password: string;
+  requestedRole?: Profile['role'];
 };
 
 type AuthResult = { error?: string; field?: 'email' | 'phone' | 'password' | 'form' };
@@ -19,7 +30,7 @@ type AuthContextValue = {
   profile: Profile | null;
   initializing: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
-  signUp: (input: { fullName: string; phone: string; email: string; password: string }) => Promise<AuthResult>;
+  signUp: (input: SignUpInput) => Promise<AuthResult>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -71,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function fetchProfile(id: string) {
     return supabase
       .from('profiles')
-      .select('id, full_name, phone, email, role')
+      .select('id, full_name, phone, email, role, is_active, requested_role')
       .eq('id', id)
       .single()
       .then(({ data }) => setLoadedProfile((data as Profile) ?? null));
@@ -99,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: NETWORK_ERROR, field: 'form' };
   }
 
-  async function signUp(input: { fullName: string; phone: string; email: string; password: string }): Promise<AuthResult> {
+  async function signUp(input: SignUpInput): Promise<AuthResult> {
     if (!isSupabaseConfigured) return { error: NOT_CONFIGURED, field: 'form' };
     const email = input.email.trim().toLowerCase();
     if (!EMAIL_RE.test(email)) return { error: 'Adresse e-mail invalide', field: 'email' };
@@ -115,7 +126,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password: input.password,
-      options: { data: { full_name: input.fullName.trim(), phone: formatPhone(digits), email } },
+      options: {
+        data: {
+          full_name: input.fullName.trim(),
+          phone: formatPhone(digits),
+          email,
+          ...(input.requestedRole && { requested_role: input.requestedRole }),
+        },
+      },
     });
     if (error) {
       if (error.code === 'user_already_exists') return { error: 'Un compte existe déjà avec cet e-mail.', field: 'email' };

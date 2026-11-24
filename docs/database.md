@@ -35,9 +35,9 @@ erDiagram
 | `vehicles` | Les véhicules réels (une plaque = une ligne). Une réservation est attribuée à un véhicule précis. |
 | `vehicle_photos` | Photos de chaque modèle. |
 | `rates` | Tarifs 6 h / 12 h par modèle, **avec historique** : un changement de prix ajoute une ligne, les anciennes réservations gardent leur prix. |
-| `drivers` | Infos chauffeur (permis, disponibilité). L'entreprise attribue le chauffeur. |
+| `drivers` | Infos chauffeur (permis, disponibilité). Le client peut choisir un chauffeur libre, sinon l'agent l'attribue. |
 | `promotions` | Codes promo (% ou montant fixe, dates, nombre d'utilisations max). |
-| `reservations` | Le cœur : client, modèle, véhicule, chauffeur, date, durée, lieu de prise en charge, prix, statut. |
+| `reservations` | Le cœur : client, modèle, véhicule, **avec ou sans chauffeur** (`with_driver`), chauffeur choisi, n° de permis du client s'il conduit, date, durée, lieu de prise en charge, prix, statut. |
 | `reservation_charges` | Frais ajoutés après coup : dépassement horaire, carburant au-delà des 5 L. |
 | `payments` | Paiements et remboursements : Airtel Money, MTN Mobile Money, virement. |
 | `reservation_status_history` | Qui a changé le statut, quand : **traçabilité complète**. |
@@ -49,7 +49,7 @@ erDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> pending : le client réserve
-    pending --> confirmed : un agent attribue véhicule + chauffeur
+    pending --> confirmed : un agent attribue le véhicule (+ le chauffeur si besoin)
     pending --> rejected : refusée
     confirmed --> pending : le client change la date
     confirmed --> in_progress : début de la location
@@ -142,3 +142,13 @@ Les **durées** (6 h, 12 h...) viennent des **tarifs** : ajouter un tarif 24 h p
 5. Créer le compte de la gérante depuis l'app (« Créer un compte »), puis dans le SQL Editor :
    `update profiles set role = 'manager' where email = 'gerante@exemple.com';`
 6. Remplacer les plaques `A-RENSEIGNER-...` par les vraies et ajouter le 4ᵉ véhicule (Table Editor > vehicles).
+
+## Avec ou sans chauffeur
+
+Migration : [`20261124120000_driver_choice.sql`](../supabase/migrations/20261124120000_driver_choice.sql)
+
+- **Avec chauffeur** (par défaut) : le client choisit un chauffeur dans la liste des chauffeurs libres sur son créneau (fonction `available_drivers`), ou laisse Zoko choisir (`driver_id` vide). L'agent peut changer le chauffeur à la confirmation.
+- **Sans chauffeur** : le client conduit lui-même ; son numéro de permis (`client_license_number`) est obligatoire et vérifié à la remise du véhicule.
+- Le prix est le même dans les deux cas.
+- Un chauffeur déjà demandé ou attribué sur un créneau qui se chevauche ne peut pas être choisi par un autre client.
+- Si le client change de chauffeur sur une réservation confirmée, elle repasse en attente.

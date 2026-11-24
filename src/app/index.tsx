@@ -1,19 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ZokoButton } from '../components/zoko-button';
 import { ZokoLogo } from '../components/zoko-logo';
 import { Colors, Fonts, Spacing } from '../constants/zoko';
+import { isStaff } from '../lib/admin/roles';
 import { useAuth } from '../lib/auth';
 import { useSettings } from '../lib/settings';
 
 export default function WelcomeScreen() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const { settings } = useSettings();
 
-  // Already logged in: go straight to the app
+  // Already logged in: team members go to the dashboard, clients to the app
+  if (session && !profile) return null; // wait for the role
+  if (session && isStaff(profile)) return <Redirect href="/admin" />;
   if (session) return <Redirect href="/home" />;
 
   return (
@@ -36,6 +39,9 @@ export default function WelcomeScreen() {
           <View style={styles.actions}>
             <ZokoButton title="Se connecter" onPress={() => router.push('/login')} />
             <ZokoButton title="Créer un compte" variant="outline" onPress={() => router.push('/register')} />
+            <Pressable onPress={() => router.push('/admin/login')} hitSlop={8} style={styles.team}>
+              <Text style={styles.teamText}>Espace équipe Zoko</Text>
+            </Pressable>
           </View>
         </View>
       </SafeAreaView>
@@ -64,4 +70,6 @@ const styles = StyleSheet.create({
   },
   hero: { alignItems: 'center' },
   actions: { gap: Spacing.md },
+  team: { alignSelf: 'center', paddingVertical: Spacing.xs },
+  teamText: { fontFamily: Fonts.medium, fontSize: 13, color: Colors.white, textDecorationLine: 'underline' },
 });

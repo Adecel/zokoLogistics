@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoadError, Loading } from '../../components/load-state';
+import { DriverPicker, type Driver, type DriversState } from '../../components/driver-picker';
 import { DayPicker, Segmented, TimePicker } from '../../components/pickers';
 import { VehicleImage } from '../../components/vehicle-image';
 import { ZokoButton } from '../../components/zoko-button';
@@ -31,6 +32,9 @@ type Existing = {
   contact_phone: string;
   client_notes: string | null;
   discount_amount: number;
+  with_driver: boolean;
+  driver_id: string | null;
+  client_license_number: string | null;
 };
 
 // ISO timestamp -> { date: "2026-11-29", time: "08:30" } in the company's time zone
@@ -53,7 +57,7 @@ type Promo = {
 
 type Availability = { state: 'loading' } | { state: 'ok'; count: number } | { state: 'error' };
 
-type Errors = { pickup?: string; phone?: string; promo?: string; form?: string };
+type Errors = { pickup?: string; phone?: string; license?: string; promo?: string; form?: string };
 
 const goBack = () => (router.canGoBack() ? router.back() : router.replace('/home'));
 
@@ -72,7 +76,7 @@ export default function BookingScreen() {
     supabase
       .from('reservations')
       .select(
-        'id, status, start_at, duration_hours, pickup_address, dropoff_address, contact_phone, client_notes, discount_amount',
+        'id, status, start_at, duration_hours, pickup_address, dropoff_address, contact_phone, client_notes, discount_amount, with_driver, driver_id, client_license_number',
       )
       .eq('id', params.edit)
       .maybeSingle()
@@ -141,6 +145,11 @@ function BookingForm({ vehicle, settings, params, existing }: FormProps) {
   const phone = phoneInput ?? profile?.phone ?? '';
   const [notes, setNotes] = useState(existing?.client_notes ?? '');
 
+  // With or without a driver; null driverId = let Zoko choose
+  const [withDriver, setWithDriver] = useState(existing?.with_driver ?? true);
+  const [driverId, setDriverId] = useState<string | null>(existing?.driver_id ?? null);
+  const [license, setLicense] = useState(existing?.client_license_number ?? '');
+
   const [promoInput, setPromoInput] = useState('');
   const [promo, setPromo] = useState<Promo | null>(null);
   const [checkingPromo, setCheckingPromo] = useState(false);
@@ -175,6 +184,32 @@ function BookingForm({ vehicle, settings, params, existing }: FormProps) {
   }, [startAt, duration, vehicle.id, existing]);
 
   const unavailable = availability.state === 'ok' && availability.count === 0;
+
+  // Drivers free for the chosen slot (only fetched when a driver is wanted)
+  const [driversChecked, setDriversChecked] = useState<{ key: string; result: DriversState } | null>(null);
+  const drivers: DriversState = driversChecked?.key === slotKey ? driversChecked.result : { state: 'loading' };
+
+  useEffect(() => {
+    if (!withDriver || !startAt || !duration) return;
+    let active = true;
+    const args = { p_start: startAt, p_duration: duration, ...(existing && { p_exclude_reservation: existing.id }) };
+    supabase.rpc('available_drivers', args).then(({ data, error }) => {
+      if (!active) return;
+      setDriversChecked({
+        key: `${startAt}|${duration}`,
+        result: error ? { state: 'error' } : { state: 'ok', drivers: (data as Driver[] | null) ?? [] },
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [withDriver, startAt, duration, existing]);
+
+  const driverTaken =
+    withDriver &&
+    driverId !== null &&
+    drivers.state === 'ok' &&
+    !drivers.drivers.some((d) => d.driver_id === driverId);
 
   // Estimated price (the database recalculates it when saving)
   const base = vehicle.prices[duration] ?? 0;
@@ -213,11 +248,19 @@ function BookingForm({ vehicle, settings, params, existing }: FormProps) {
     if (!pickup.trim()) next.pickup = 'Indiquez le lieu de prise en charge';
     const digits = phoneDigits(phone);
     if (!digits) next.phone = 'Entrez un numéro valide (ex. 06 123 45 67)';
+    if (!withDriver && !license.trim()) next.license = 'Indiquez votre numéro de permis de conduire';
+    if (driverTaken) next.form = 'Le chauffeur choisi n’est pas libre à ce créneau. Choisissez-en un autre.';
     if (unavailable) next.form = 'Ce véhicule n’est plus disponible à ce créneau. Choisissez une autre date ou heure.';
     setErrors(next);
     if (Object.keys(next).length > 0 || !session || !startAt || !digits) return;
 
     setSubmitting(true);
+
+    const driverChoice = {
+      with_driver: withDriver,
+      driver_id: withDriver ? driverId : null,
+      client_license_number: withDriver ? null : license.trim(),
+    };
 
     if (existing) {
       const { error } = await supabase
@@ -229,6 +272,7 @@ function BookingForm({ vehicle, settings, params, existing }: FormProps) {
           dropoff_address: dropoff.trim() || null,
           contact_phone: formatPhone(digits),
           client_notes: notes.trim() || null,
+          ...driverChoice,
         })
         .eq('id', existing.id);
       setSubmitting(false);
@@ -257,6 +301,7 @@ function BookingForm({ vehicle, settings, params, existing }: FormProps) {
         contact_phone: formatPhone(digits),
         client_notes: notes.trim() || null,
         promotion_id: promo?.id ?? null,
+        ...driverChoice,
         base_price: 0, // computed by the database
       })
       .select('id')
@@ -285,9 +330,11 @@ function BookingForm({ vehicle, settings, params, existing }: FormProps) {
     ...settings.booking_conditions,
   ];
 
+  const driverChanged =
+    !!existing && (withDriver !== existing.with_driver || (withDriver && driverId !== existing.driver_id));
   const backToPending =
     existing?.status === 'confirmed' &&
-    (date !== original?.date || time !== original?.time || duration !== existing.duration_hours);
+    (date !== original?.date || time !== original?.time || duration !== existing.duration_hours || driverChanged);
 
   return (
     <Screen
@@ -303,7 +350,7 @@ function BookingForm({ vehicle, settings, params, existing }: FormProps) {
               title={editing ? 'Enregistrer' : 'Continuer'}
               onPress={handleSubmit}
               loading={submitting}
-              disabled={unavailable}
+              disabled={unavailable || driverTaken}
             />
           </View>
         </View>
@@ -347,9 +394,39 @@ function BookingForm({ vehicle, settings, params, existing }: FormProps) {
       <AvailabilityBadge availability={availability} />
       {backToPending && (
         <Text style={styles.warning}>
-          Changer la date, l’heure ou la durée remet votre réservation en attente : un agent devra la confirmer à
-          nouveau.
+          Changer la date, l’heure, la durée ou le chauffeur remet votre réservation en attente : un agent devra la
+          confirmer à nouveau.
         </Text>
+      )}
+
+      {/* Driver: with (choose one, or let Zoko choose) or without (client drives) */}
+      <Field label="Chauffeur">
+        <Segmented
+          options={[
+            { value: 'with', label: 'Avec chauffeur' },
+            { value: 'without', label: 'Sans chauffeur' },
+          ]}
+          value={withDriver ? 'with' : 'without'}
+          onChange={(v) => setWithDriver(v === 'with')}
+        />
+      </Field>
+      {withDriver ? (
+        <DriverPicker drivers={drivers} value={driverId} onChange={setDriverId} />
+      ) : (
+        <>
+          <Text style={styles.muted}>
+            Vous conduisez vous-même. Votre permis sera vérifié à la remise du véhicule ; le prix reste le même.
+          </Text>
+          <ZokoInput
+            label="Numéro de permis de conduire"
+            icon="card-outline"
+            placeholder="N° inscrit sur votre permis"
+            autoCapitalize="characters"
+            value={license}
+            onChangeText={setLicense}
+            error={errors.license}
+          />
+        </>
       )}
 
       {/* Places + contact */}

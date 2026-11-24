@@ -244,7 +244,7 @@ function PaymentForm({ reservation, payments, settings }: { reservation: Reserva
                 <View style={styles.details}>
                   {m.method === 'cash' ? (
                     <>
-                      <Line label="À remettre au chauffeur" value={formatPrice(amount, currency)} bold />
+                      <Line label="À payer à la prise en charge" value={formatPrice(amount, currency)} bold />
                       {m.instructions ? <Text style={styles.instructions}>{m.instructions}</Text> : null}
                     </>
                   ) : (

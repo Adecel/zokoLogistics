@@ -42,6 +42,9 @@ function RootNavigator() {
           so every redirect lands on a real web address (never "/(tabs)") */}
       <Stack.Screen name="index" />
 
+      {/* Team dashboard: has its own login and access rules (admin/_layout.tsx) */}
+      <Stack.Screen name="admin" />
+
       {/* Visitors: login, sign-up */}
       <Stack.Protected guard={!loggedIn}>
         <Stack.Screen name="login" />
