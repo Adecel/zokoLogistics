@@ -20,7 +20,9 @@ export function AdminAuthFrame({ title, subtitle, children }: { title: string; s
     <View style={[styles.flex, wide && styles.row]}>
       {wide && (
         <View style={styles.brand}>
-          <ZokoLogo size={56} color={Colors.white} />
+          <View style={styles.logo}>
+            <ZokoLogo size={56} color={Colors.white} />
+          </View>
           <Text style={styles.brandTitle}>Tableau de bord</Text>
           <Text style={styles.brandText}>L’espace de l’équipe Zoko Logistics pour gérer l’activité au quotidien.</Text>
           <View style={styles.points}>
@@ -67,6 +69,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.md,
   },
+  logo: { alignSelf: 'flex-start' },
   brandTitle: { fontFamily: Fonts.bold, fontSize: 32, color: Colors.white, marginTop: Spacing.lg },
   brandText: { fontFamily: Fonts.regular, fontSize: 16, lineHeight: 24, color: '#C9D6E6' },
   points: { gap: Spacing.md, marginTop: Spacing.lg },

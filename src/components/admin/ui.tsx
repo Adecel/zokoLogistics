@@ -423,7 +423,18 @@ export function Toggle({ label, value, onChange, hint }: {
 // Two fields side by side on computer, stacked on phone
 export function FieldRow({ children }: { children: ReactNode }) {
   const wide = useIsWide();
-  return <View style={wide ? styles.fieldRowWide : styles.fieldRowNarrow}>{children}</View>;
+  if (!wide) return <View style={styles.fieldRowNarrow}>{children}</View>;
+  // Side by side: each field takes an equal share of the width
+  const items = (Array.isArray(children) ? children : [children]).flat().filter(Boolean);
+  return (
+    <View style={styles.fieldRowWide}>
+      {items.map((child, i) => (
+        <View key={i} style={styles.fieldRowItem}>
+          {child}
+        </View>
+      ))}
+    </View>
+  );
 }
 
 export function FormError({ message }: { message: string | null | undefined }) {
@@ -632,7 +643,7 @@ const styles = StyleSheet.create({
   buttonSmall: { height: 34, paddingHorizontal: Spacing.sm + 4 },
   buttonText: { fontFamily: Fonts.semibold, fontSize: 14 },
 
-  field: { gap: 6, flexGrow: 1, flexBasis: 0, minWidth: 0 },
+  field: { gap: 6, alignSelf: 'stretch' },
   fieldLabel: { fontFamily: Fonts.medium, fontSize: 13, color: Colors.text },
   fieldError: { fontFamily: Fonts.medium, fontSize: 12, color: Colors.danger },
   input: {
@@ -642,12 +653,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm + 4,
     paddingVertical: Platform.OS === 'web' ? 10 : 8,
     fontFamily: Fonts.regular,
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.text,
     backgroundColor: Colors.white,
   },
   inputMultiline: { minHeight: 88, textAlignVertical: 'top' },
   fieldRowWide: { flexDirection: 'row', gap: Spacing.md, alignItems: 'flex-start' },
+  fieldRowItem: { flex: 1, minWidth: 0 },
   fieldRowNarrow: { gap: Spacing.md },
 
   search: {
@@ -663,7 +675,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minWidth: 200,
   },
-  searchInput: { flex: 1, fontFamily: Fonts.regular, fontSize: 14, color: Colors.text, height: '100%' },
+  searchInput: { flex: 1, minWidth: 0, fontFamily: Fonts.regular, fontSize: 16, color: Colors.text, height: '100%' },
 
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   chip: {
