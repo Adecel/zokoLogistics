@@ -1,9 +1,9 @@
 # Demo: every push to main rebuilds the web version and publishes it
-# to Expo Hosting (https://<your-name>.expo.app).
+# to Expo Hosting: https://zoko.expo.app
 #
 # One-time setup: see docs/demo.md
-#   - GitHub secrets: EXPO_TOKEN, EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-#   - app.json linked to an Expo project (npx eas-cli init) and a subdomain chosen once
+#   - GitHub secret: EXPO_TOKEN (the only real secret)
+#   - app.json is linked to the Expo project @adecel/zoko, subdomain "zoko" (https://zoko.expo.app)
 
 name: Deploy demo
 
@@ -22,9 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # Built into the web bundle (public by design: publishable key, protected by RLS)
-      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      # Supabase project used by the demo. Not secrets: they are built into the public
+      # web bundle anyway (publishable key, data protected by the RLS policies).
+      # A GitHub secret with the same name overrides the value (e.g. another project).
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || 'https://kswuourrllmpamtqunch.supabase.co' }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_R1y5J2_HZPKjxgYz-A3ONw_3PP8e_uU' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -35,12 +37,10 @@ jobs:
 
       - name: Check secrets
         run: |
-          missing=0
-          for name in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY; do
-            if [ -z "${!name}" ]; then echo "::error::Secret $name is missing (Settings > Secrets and variables > Actions)"; missing=1; fi
-          done
-          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then echo "::error::Secret EXPO_TOKEN is missing"; missing=1; fi
-          exit $missing
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "::error::Secret EXPO_TOKEN is missing. Create it at https://expo.dev/settings/access-tokens, then add it in GitHub > Settings > Secrets and variables > Actions."
+            exit 1
+          fi
 
       # Stop before publishing if the demo could not talk to Supabase
       - name: Check the Supabase connection

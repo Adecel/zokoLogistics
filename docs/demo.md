@@ -2,8 +2,8 @@
 
 Chaque `git push` sur la branche `main` met à jour automatiquement la démo :
 
-- Application client : `https://<nom-choisi>.expo.app`
-- Tableau de bord : `https://<nom-choisi>.expo.app/admin/login`
+- Application client : https://zoko.expo.app
+- Tableau de bord : https://zoko.expo.app/admin/login
 
 La construction se fait sur les serveurs de GitHub (fichier
 [`.github/workflows/deploy-demo.yml`](../.github/workflows/deploy-demo.yml)), puis le site est
@@ -34,28 +34,32 @@ git commit -m "Relier le projet à Expo"
 
 Sur https://expo.dev/settings/access-tokens → **Create token** → copiez-le.
 
-### 3. Secrets GitHub
+### 3. Secret GitHub (un seul)
 
 Sur GitHub : dépôt **zokoLogistics** → **Settings** → **Secrets and variables** → **Actions** →
-**New repository secret**. Ajoutez ces 3 secrets :
+**New repository secret** :
 
 | Nom | Valeur |
 |---|---|
 | `EXPO_TOKEN` | le jeton de l'étape 2 |
-| `EXPO_PUBLIC_SUPABASE_URL` | la même valeur que dans votre `.env.local` |
-| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | la même valeur que dans votre `.env.local` |
 
-Ne collez jamais ces valeurs dans le code ou dans un message : seulement dans les secrets GitHub.
+L'adresse Supabase et la clé publishable sont écrites dans
+[`.github/workflows/deploy-demo.yml`](../.github/workflows/deploy-demo.yml) : ce ne sont pas des
+secrets (elles sont de toute façon visibles dans le site publié ; les données sont protégées par les
+règles RLS). Pour utiliser un autre projet Supabase, créez des secrets `EXPO_PUBLIC_SUPABASE_URL` et
+`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` : ils remplacent ces valeurs.
+
+Ne mettez jamais dans le code la clé *secret* / *service_role* de Supabase, ni le jeton Expo.
 
 ### 4. Supabase : adresse de la démo
 
-La démo utilise le même projet Supabase que votre `.env.local` (grâce aux deux secrets ci-dessus).
+La démo utilise le même projet Supabase que votre `.env.local`.
 Pour que les liens envoyés par e-mail (confirmation de compte) ramènent vers la démo :
 
 Supabase → **Authentication** → **URL Configuration** :
 
-- **Site URL** : `https://<nom-choisi>.expo.app`
-- **Redirect URLs** : ajoutez `https://<nom-choisi>.expo.app/**`
+- **Site URL** : `https://zoko.expo.app`
+- **Redirect URLs** : ajoutez `https://zoko.expo.app/**`
 
 Les migrations de `supabase/migrations/` doivent être exécutées dans le SQL Editor
 (le déploiement affiche un avertissement s'il en manque une).
