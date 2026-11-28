@@ -82,9 +82,9 @@ on conflict (brand, name) do nothing;
 insert into public.rates (model_id, duration_hours, price)
 select m.id, t.duration_hours, t.price
 from (values
-  ('S-Presso', 6, 15000), ('S-Presso', 12, 20000),
-  ('Jimny',    6, 20000), ('Jimny',    12, 30000),
-  ('Fronx',    6, 25000), ('Fronx',    12, 40000)
+  ('S-Presso', 3, 10000), ('S-Presso', 6, 15000), ('S-Presso', 12, 20000),
+  ('Jimny',    3, 15000), ('Jimny',    6, 20000), ('Jimny',    12, 30000),
+  ('Fronx',    3, 20000), ('Fronx',    6, 25000), ('Fronx',    12, 40000)
 ) as t (name, duration_hours, price)
 join public.vehicle_models m on m.brand = 'Suzuki' and m.name = t.name
 where not exists (
