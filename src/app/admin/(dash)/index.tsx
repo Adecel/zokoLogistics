@@ -14,15 +14,16 @@ import { unwrap, useLoad } from '../../../lib/admin/use-load';
 import { useAuth } from '../../../lib/auth';
 import { supabase } from '../../../lib/supabase';
 
+// Reservation and money figures are only returned to the roles allowed to see them
 type Stats = {
-  pending_reservations: number;
-  upcoming_confirmed: number;
-  in_progress: number;
-  today_departures: number;
-  payments_to_verify: number;
-  payments_to_verify_amount: number;
-  revenue_month: number;
-  unpaid_balance: number;
+  pending_reservations?: number;
+  upcoming_confirmed?: number;
+  in_progress?: number;
+  today_departures?: number;
+  payments_to_verify?: number;
+  payments_to_verify_amount?: number;
+  revenue_month?: number;
+  unpaid_balance?: number;
   vehicles_total: number;
   vehicles_available: number;
   drivers_available: number;
@@ -50,10 +51,15 @@ export default function DashboardHome() {
   const { profile } = useAuth();
   const role = profile?.role;
 
+  const seeReservations = can(role, 'reservations');
+  const seePayments = can(role, 'payments');
+
   const { data, error, reload, loading } = useLoad(async () => {
     const [stats, upcoming] = await Promise.all([
       supabase.rpc('dashboard_stats').then(unwrap),
-      supabase
+      !seeReservations
+        ? Promise.resolve([])
+        : supabase
         .from('reservation_details')
         .select(
           'id, reference, status, start_at, duration_hours, client_name, model_name, plate_number, driver_name, with_driver, amount_due, amount_paid, balance',
@@ -76,31 +82,38 @@ export default function DashboardHome() {
       {error && <LoadError message={error} onRetry={reload} />}
       {data && (
         <>
+          {(seeReservations || seePayments) && (
           <Grid min={230}>
+            {seeReservations && (
             <Stat
               label="Réservations en attente"
-              value={data.stats.pending_reservations}
+              value={data.stats.pending_reservations ?? 0}
               icon="hourglass-outline"
               tone="warning"
               hint="À confirmer"
               onPress={go('/admin/reservations?status=pending')}
             />
+            )}
+            {seeReservations && (
             <Stat
               label="Départs aujourd’hui"
-              value={data.stats.today_departures}
+              value={data.stats.today_departures ?? 0}
               icon="today-outline"
               tone="info"
-              hint={`${data.stats.in_progress} location(s) en cours`}
+              hint={`${data.stats.in_progress ?? 0} en cours`}
               onPress={go('/admin/reservations?status=in_progress')}
             />
+            )}
+            {seePayments && (
             <Stat
               label="Paiements à vérifier"
-              value={data.stats.payments_to_verify}
+              value={data.stats.payments_to_verify ?? 0}
               icon="wallet-outline"
               tone={data.stats.payments_to_verify ? 'danger' : 'success'}
               hint={formatMoney(data.stats.payments_to_verify_amount)}
-              onPress={can(role, 'payments') ? go('/admin/payments') : undefined}
+              onPress={go('/admin/payments')}
             />
+            )}
             {can(role, 'reports') && (
               <Stat
                 label="Encaissé ce mois"
@@ -112,6 +125,7 @@ export default function DashboardHome() {
               />
             )}
           </Grid>
+          )}
 
           <Grid min={230}>
             <Stat
@@ -146,6 +160,7 @@ export default function DashboardHome() {
             )}
           </Grid>
 
+          {seeReservations && (
           <Card
             title="Prochaines locations"
             actions={<Text style={ui.link} onPress={go('/admin/reservations')}>Tout voir</Text>}
@@ -179,6 +194,7 @@ export default function DashboardHome() {
               })
             )}
           </Card>
+          )}
         </>
       )}
     </Page>
