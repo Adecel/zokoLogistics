@@ -11,6 +11,7 @@ import { formatPrice } from '../../constants/vehicles';
 import { Colors, Fonts, Radius, Spacing } from '../../constants/zoko';
 import { useAuth } from '../../lib/auth';
 import { useCatalog } from '../../lib/catalog';
+import { routeLabel } from '../../lib/rides';
 import { useSettings } from '../../lib/settings';
 import { supabase } from '../../lib/supabase';
 
@@ -27,6 +28,9 @@ type Item = {
   pickup_address: string;
   amount_due: number;
   balance: number;
+  kind: 'rental' | 'ride';
+  from_zone_name: string | null;
+  to_zone_name: string | null;
 };
 
 type Filter = 'all' | 'active' | 'past' | 'cancelled';
@@ -62,7 +66,7 @@ export default function ReservationsScreen() {
     if (!userId) return;
     const { data, error: err } = await supabase
       .from('reservation_details')
-      .select('id, reference, status, start_at, duration_hours, model_id, model_name, pickup_address, amount_due, balance')
+      .select('id, reference, status, start_at, duration_hours, model_id, model_name, pickup_address, amount_due, balance, kind, from_zone_name, to_zone_name')
       .eq('client_id', userId) // staff accounts can read everyone's: keep only mine
       .order('start_at', { ascending: false });
     if (err) {
@@ -143,7 +147,8 @@ export default function ReservationsScreen() {
           renderItem={({ item }) => {
             const badge = STATUS_BADGE[item.status];
             const photo = vehicles?.find((v) => v.id === item.model_id)?.photos[0];
-            const toPay = item.balance > 0 && ['pending', 'confirmed'].includes(item.status);
+            const ride = item.kind === 'ride';
+            const toPay = !ride && item.balance > 0 && ['pending', 'confirmed'].includes(item.status);
             return (
               <Pressable
                 onPress={() => router.push({ pathname: '/reservation/[id]', params: { id: item.id } })}
@@ -160,7 +165,9 @@ export default function ReservationsScreen() {
                     </View>
                   </View>
                   <Text style={styles.meta}>
-                    {formatBusinessDateTime(item.start_at, offset)} · {item.duration_hours} h
+                    {ride
+                      ? `Course · ${routeLabel(item.from_zone_name, item.to_zone_name)} · ${formatBusinessDateTime(item.start_at, offset)}`
+                      : `${formatBusinessDateTime(item.start_at, offset)} · ${item.duration_hours} h`}
                   </Text>
                   <View style={styles.cardBottom}>
                     <Text style={styles.price}>{formatPrice(item.amount_due, currency)}</Text>

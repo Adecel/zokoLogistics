@@ -21,7 +21,7 @@ export const ROLE_DESCRIPTIONS: Partial<Record<Role, string>> = {
   admin: 'Tous les droits, y compris la suppression',
   manager: 'Flotte, chauffeurs, réservations, clients, paramètres',
   accountant: 'Paiements, remboursements, frais et rapports',
-  agent: 'Suit et confirme les réservations',
+  agent: 'Suit et confirme les réservations, gère les zones et prix des courses',
 };
 
 export function isStaff(profile: Pick<Profile, 'role' | 'is_active'> | null | undefined) {
@@ -36,6 +36,7 @@ export type Permission =
   | 'reservations.operate' // confirm, assign vehicle/driver, start, finish, cancel
   | 'payments' // verify payments, refunds, charges
   | 'fleet' // vehicles, rates, photos
+  | 'rides' // ride zones and prices
   | 'drivers'
   | 'clients'
   | 'clients.manage' // deactivate a client
@@ -51,6 +52,7 @@ const PERMISSIONS: Record<Permission, Role[]> = {
   'reservations.operate': ['admin', 'manager', 'agent'],
   payments: ['admin', 'manager', 'accountant', 'agent'],
   fleet: ['admin', 'manager'],
+  rides: ['admin', 'manager', 'agent'],
   drivers: ['admin', 'manager'],
   clients: ['admin', 'manager', 'accountant', 'agent'],
   'clients.manage': ['admin', 'manager'],

@@ -115,8 +115,13 @@ export default function RegisterScreen() {
             </View>
             <Text style={styles.termsText}>
               {"J'accepte les "}
-              <Text style={styles.link}>{"conditions d'utilisation"}</Text> et la{' '}
-              <Text style={styles.link}>politique de confidentialité</Text>
+              <Text style={styles.link} onPress={() => router.push('/legal/terms')} accessibilityRole="link">
+                {"conditions d'utilisation"}
+              </Text>
+              {' et la '}
+              <Text style={styles.link} onPress={() => router.push('/legal/privacy')} accessibilityRole="link">
+                politique de confidentialité
+              </Text>
             </Text>
           </Pressable>
           {errors.terms ? <Text style={styles.error}>{errors.terms}</Text> : null}

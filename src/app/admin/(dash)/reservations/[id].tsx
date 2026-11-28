@@ -77,6 +77,11 @@ type Details = {
   cancellation_reason: string | null;
   actual_start_at: string | null;
   actual_end_at: string | null;
+  kind: 'rental' | 'ride';
+  from_zone_name: string | null;
+  to_zone_name: string | null;
+  ride_city: string | null;
+  ride_minutes: number | null;
 };
 
 type Extra = { client_notes: string | null; internal_notes: string | null };
@@ -164,6 +169,7 @@ function ReservationDetail() {
   const operate = can(role, 'reservations.operate');
   const finance = can(role, 'payments');
   const isAdmin = can(role, 'delete');
+  const ride = r.kind === 'ride';
 
   async function run(action: () => PromiseLike<{ error: unknown }>, fallback?: string) {
     setBusy(true);
@@ -251,7 +257,7 @@ function ReservationDetail() {
       <View style={ui.wrap}>
         <Badge label={st.label} tone={st.tone} />
         <Badge label={ps.label} tone={ps.tone} />
-        <Badge label={r.with_driver ? 'Avec chauffeur' : 'Sans chauffeur'} tone="info" />
+        {ride ? <Badge label="Course immédiate" tone="info" /> : <Badge label={r.with_driver ? 'Avec chauffeur' : 'Sans chauffeur'} tone="info" />}
       </View>
 
       <FormError message={actionError} />
@@ -259,7 +265,10 @@ function ReservationDetail() {
       {/* Actions by status */}
       {operate && ['pending', 'confirmed', 'in_progress'].includes(r.status) && (
         <Card title="Actions">
-          {r.status === 'pending' && r.balance > 0 && (
+          {ride && r.status === 'pending' && (
+            <Notice tone="info" text="Course immédiate : attribuez un véhicule et un chauffeur tout de suite. Le client paie au chauffeur à l’arrivée : encaissez ensuite avec « Encaisser »." />
+          )}
+          {!ride && r.status === 'pending' && r.balance > 0 && (
             <Notice tone="warning" text={`Paiement non soldé : reste ${formatMoney(r.balance)}. Vérifiez les paiements avant de confirmer.`} />
           )}
           <View style={ui.wrap}>
@@ -271,29 +280,57 @@ function ReservationDetail() {
             )}
             {r.status === 'confirmed' && (
               <>
-                <Button title="Démarrer la location" icon="play-outline" variant="success" onPress={() => setStatus('in_progress', { title: 'Démarrer la location', message: 'Le client a pris le véhicule.' })} loading={busy} />
+                <Button
+                  title={ride ? 'Démarrer la course' : 'Démarrer la location'}
+                  icon="play-outline"
+                  variant="success"
+                  onPress={() =>
+                    setStatus('in_progress', {
+                      title: ride ? 'Démarrer la course' : 'Démarrer la location',
+                      message: ride ? 'Le chauffeur a pris le client.' : 'Le client a pris le véhicule.',
+                    })
+                  }
+                  loading={busy}
+                />
                 <Button title="Changer véhicule / chauffeur" icon="swap-horizontal-outline" variant="outline" onPress={() => setAssignOpen(true)} />
                 <Button title="Client absent" icon="alert-circle-outline" variant="outline" onPress={() => setStatus('no_show', { title: 'Client absent', message: 'Le client ne s’est pas présenté.', danger: true })} />
               </>
             )}
             {r.status === 'in_progress' && (
-              <Button title="Terminer la location" icon="flag-outline" variant="success" onPress={() => setStatus('completed', { title: 'Terminer la location', message: 'Le véhicule a été rendu. Ajoutez d’éventuels frais (dépassement, carburant) avant ou après.' })} loading={busy} />
+              <Button
+                title={ride ? 'Terminer la course' : 'Terminer la location'}
+                icon="flag-outline"
+                variant="success"
+                onPress={() =>
+                  setStatus('completed', {
+                    title: ride ? 'Terminer la course' : 'Terminer la location',
+                    message: ride
+                      ? `Le client est arrivé. Pensez à encaisser ${formatMoney(Math.max(0, r.balance))}.`
+                      : 'Le véhicule a été rendu. Ajoutez d’éventuels frais (dépassement, carburant) avant ou après.',
+                  })
+                }
+                loading={busy}
+              />
             )}
             {(r.status === 'pending' || r.status === 'confirmed') && (
-              <Button title="Annuler" icon="ban-outline" variant="danger" onPress={() => setStatus('cancelled', { title: 'Annuler la réservation', reason: true, danger: true })} />
+              <Button title="Annuler" icon="ban-outline" variant="danger" onPress={() => setStatus('cancelled', { title: ride ? 'Annuler la course' : 'Annuler la réservation', reason: true, danger: true })} />
             )}
           </View>
         </Card>
       )}
 
       <Grid min={300}>
-        <Card title="Location">
-          <InfoRow label="Début" value={formatDateTime(r.start_at)} />
-          <InfoRow label="Fin prévue" value={`${formatDateTime(r.end_at)} · ${r.duration_hours} h`} />
+        <Card title={ride ? 'Course' : 'Location'}>
+          {ride && <InfoRow label="Trajet" value={`${r.from_zone_name} → ${r.to_zone_name} · ${r.ride_city ?? ''}`} />}
+          <InfoRow label={ride ? 'Commandée' : 'Début'} value={formatDateTime(r.start_at)} />
+          <InfoRow
+            label={ride ? 'Véhicule bloqué jusqu’à' : 'Fin prévue'}
+            value={ride ? `${formatDateTime(r.end_at)} · ${r.ride_minutes} min (approche + trajet)` : `${formatDateTime(r.end_at)} · ${r.duration_hours} h`}
+          />
           {r.actual_start_at ? <InfoRow label="Début réel" value={formatDateTime(r.actual_start_at)} /> : null}
           {r.actual_end_at ? <InfoRow label="Fin réelle" value={formatDateTime(r.actual_end_at)} /> : null}
-          <InfoRow label="Prise en charge" value={r.pickup_address} />
-          <InfoRow label="Restitution" value={r.dropoff_address ?? 'Même lieu'} />
+          <InfoRow label={ride ? 'Point de départ' : 'Prise en charge'} value={r.pickup_address} />
+          <InfoRow label={ride ? 'Destination précise' : 'Restitution'} value={r.dropoff_address ?? (ride ? '—' : 'Même lieu')} />
           {data.extra?.client_notes ? <InfoRow label="Remarque du client" value={data.extra.client_notes} /> : null}
           {r.cancellation_reason ? <InfoRow label="Motif d’annulation / refus" value={r.cancellation_reason} /> : null}
         </Card>
@@ -332,7 +369,7 @@ function ReservationDetail() {
 
       <Grid min={340}>
         <Card title="Montants">
-          <MoneyLine label="Tarif" value={r.base_price} />
+          <MoneyLine label={ride ? 'Prix du trajet' : 'Tarif'} value={r.base_price} />
           {r.discount_amount > 0 && <MoneyLine label={`Réduction${r.promotion_code ? ` (${r.promotion_code})` : ''}`} value={-r.discount_amount} />}
           {r.extra_charges > 0 && <MoneyLine label="Frais supplémentaires" value={r.extra_charges} />}
           <MoneyLine label="Total dû" value={r.amount_due} bold />
@@ -548,14 +585,23 @@ function AssignSheet({ visible, reservation: r, onClose, onDone }: { visible: bo
       }
     >
       <Text style={ui.muted}>
-        {r.model_name} · {formatDateTime(r.start_at)} · {r.duration_hours} h
+        {r.model_name} · {formatDateTime(r.start_at)} · {r.kind === 'ride' ? `course ${r.from_zone_name} → ${r.to_zone_name} (${r.ride_city})` : `${r.duration_hours} h`}
       </Text>
       {options.loading && <Loading />}
       {options.error && <LoadError message={options.error} onRetry={options.reload} />}
       {options.data && (
         <>
           <Text style={ui.strong}>Véhicule</Text>
-          {options.data.vehicles.length === 0 && <Notice tone="danger" text="Aucun véhicule de ce modèle dans la flotte. Ajoutez-en un dans Véhicules." />}
+          {options.data.vehicles.length === 0 && (
+            <Notice
+              tone="danger"
+              text={
+                r.kind === 'ride'
+                  ? `Aucun véhicule de ce modèle basé à ${r.ride_city}. Vérifiez la ville des plaques dans Véhicules.`
+                  : 'Aucun véhicule de ce modèle dans la flotte. Ajoutez-en un dans Véhicules.'
+              }
+            />
+          )}
           {options.data.vehicles.map((v) => (
             <Pressable
               key={v.vehicle_id}

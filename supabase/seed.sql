@@ -53,7 +53,12 @@ insert into public.app_settings (key, value, is_public, description) values
      "instructions": "Faites un virement du montant exact en indiquant la référence de réservation comme motif. Vous pouvez joindre une photo du reçu de virement."}
   ]$json$, true, 'Paiement : moyens proposés et coordonnées (numéro, titulaire, banque, consignes)'),
   ('payment_note', '"Votre paiement est vérifié par notre équipe, qui confirme ensuite la réservation."',
-                                                                                true, 'Paiement : note sous le bouton')
+                                                                                true, 'Paiement : note sous le bouton'),
+
+  -- Courses immédiates (prix forfaitaires par zone)
+  ('rides_enabled',       'true',                                     true, 'Courses : proposées aux clients (true / false)'),
+  ('ride_hours',          '{"start": "06:00", "end": "22:00"}',       true, 'Courses : heures où un client peut commander'),
+  ('ride_pickup_minutes', '20',                                       true, 'Courses : minutes pour que le chauffeur arrive (ajoutées au blocage du véhicule)')
 on conflict (key) do update
   set is_public = excluded.is_public,
       description = excluded.description;
@@ -82,9 +87,9 @@ on conflict (brand, name) do nothing;
 insert into public.rates (model_id, duration_hours, price)
 select m.id, t.duration_hours, t.price
 from (values
-  ('S-Presso', 6, 15000), ('S-Presso', 12, 20000),
-  ('Jimny',    6, 20000), ('Jimny',    12, 30000),
-  ('Fronx',    6, 25000), ('Fronx',    12, 40000)
+  ('S-Presso', 3, 10000), ('S-Presso', 6, 15000), ('S-Presso', 12, 20000),
+  ('Jimny',    3, 15000), ('Jimny',    6, 20000), ('Jimny',    12, 30000),
+  ('Fronx',    3, 20000), ('Fronx',    6, 25000), ('Fronx',    12, 40000)
 ) as t (name, duration_hours, price)
 join public.vehicle_models m on m.brand = 'Suzuki' and m.name = t.name
 where not exists (
@@ -102,3 +107,26 @@ select m.id, 'A-RENSEIGNER-' || upper(m.name)
 from public.vehicle_models m
 where m.brand = 'Suzuki'
 on conflict (plate_number) do nothing;
+
+-- ---------------------------------------------------------------------
+-- Zones des courses : arrondissements de Pointe-Noire et de Brazzaville.
+-- L'équipe ajoute les quartiers et les prix dans Tableau de bord > Courses.
+-- Brazzaville est désactivée tant qu'aucun véhicule n'y est basé.
+-- ---------------------------------------------------------------------
+insert into public.ride_zones (city, name, district, position, is_active) values
+  ('Pointe-Noire', 'Lumumba',        '1er arrondissement', 1, true),
+  ('Pointe-Noire', 'Mvou-Mvou',      '2e arrondissement',  2, true),
+  ('Pointe-Noire', 'Tié-Tié',        '3e arrondissement',  3, true),
+  ('Pointe-Noire', 'Loandjili',      '4e arrondissement',  4, true),
+  ('Pointe-Noire', 'Mongo-Mpoukou',  '5e arrondissement',  5, true),
+  ('Pointe-Noire', 'Ngoyo',          '6e arrondissement',  6, true),
+  ('Brazzaville',  'Makélékélé',     '1er arrondissement', 1, false),
+  ('Brazzaville',  'Bacongo',        '2e arrondissement',  2, false),
+  ('Brazzaville',  'Poto-Poto',      '3e arrondissement',  3, false),
+  ('Brazzaville',  'Moungali',       '4e arrondissement',  4, false),
+  ('Brazzaville',  'Ouenzé',         '5e arrondissement',  5, false),
+  ('Brazzaville',  'Talangaï',       '6e arrondissement',  6, false),
+  ('Brazzaville',  'Mfilou',         '7e arrondissement',  7, false),
+  ('Brazzaville',  'Madibou',        '8e arrondissement',  8, false),
+  ('Brazzaville',  'Djiri',          '9e arrondissement',  9, false)
+on conflict (city, name) do nothing;

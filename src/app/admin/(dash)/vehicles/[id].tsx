@@ -56,6 +56,7 @@ type Vehicle = {
   status: VehicleStatus;
   mileage_km: number | null;
   notes: string | null;
+  city: string;
 };
 
 export default function VehicleScreen() {
@@ -72,17 +73,20 @@ function VehicleEditor() {
 
   const { data, error, loading, reload } = useLoad(async () => {
     if (isNew) return null;
-    const [model, photos, rates, vehicles] = await Promise.all([
+    const [model, photos, rates, vehicles, zones] = await Promise.all([
       supabase.from('vehicle_models').select('id, brand, name, seats, transmission, fuel_type, features, description, is_active').eq('id', id).maybeSingle().then(unwrap),
       supabase.from('vehicle_photos').select('id, url, position').eq('model_id', id).order('position').then(unwrap),
       supabase.from('rates').select('id, duration_hours, price, valid_from, valid_to').eq('model_id', id).order('valid_from', { ascending: false }).then(unwrap),
-      supabase.from('vehicles').select('id, plate_number, color, year, status, mileage_km, notes').eq('model_id', id).order('plate_number').then(unwrap),
+      supabase.from('vehicles').select('id, plate_number, color, year, status, mileage_km, notes, city').eq('model_id', id).order('plate_number').then(unwrap),
+      supabase.from('ride_zones').select('city').then(unwrap),
     ]);
     return {
       model: model as Model | null,
       photos: photos as Photo[],
       rates: rates as Rate[],
       vehicles: vehicles as Vehicle[],
+      // Cities known from the ride zones, plus the ones already used by plates
+      cities: [...new Set([...(zones as { city: string }[]).map((z) => z.city), ...(vehicles as Vehicle[]).map((v) => v.city)])].sort(),
       now: Date.now(), // "now" for current prices, taken when the data is fetched
     };
   }, [id]);
@@ -105,7 +109,7 @@ function VehicleEditor() {
           <Photos modelId={model.id} photos={data.photos} onChanged={reload} />
           <Grid min={360}>
             <Rates modelId={model.id} rates={data.rates} now={data.now} onChanged={reload} />
-            <Fleet modelId={model.id} vehicles={data.vehicles} onChanged={reload} />
+            <Fleet modelId={model.id} vehicles={data.vehicles} cities={data.cities} onChanged={reload} />
           </Grid>
         </>
       )}
@@ -412,7 +416,7 @@ function Rates({ modelId, rates, now, onChanged }: { modelId: string; rates: Rat
 // ---------------------------------------------------------------------------
 // Physical vehicles (one plate = one row)
 
-function Fleet({ modelId, vehicles, onChanged }: { modelId: string; vehicles: Vehicle[]; onChanged: () => void }) {
+function Fleet({ modelId, vehicles, cities, onChanged }: { modelId: string; vehicles: Vehicle[]; cities: string[]; onChanged: () => void }) {
   const { profile } = useAuth();
   const confirm = useConfirm();
   const [form, setForm] = useState<Partial<Vehicle> & { open: boolean }>({ open: false });
@@ -421,7 +425,7 @@ function Fleet({ modelId, vehicles, onChanged }: { modelId: string; vehicles: Ve
 
   function open(v?: Vehicle) {
     setErr(null);
-    setForm(v ? { ...v, open: true } : { open: true, status: 'available' });
+    setForm(v ? { ...v, open: true } : { open: true, status: 'available', city: cities[0] ?? 'Pointe-Noire' });
   }
 
   async function save() {
@@ -436,6 +440,7 @@ function Fleet({ modelId, vehicles, onChanged }: { modelId: string; vehicles: Ve
       status: form.status ?? 'available',
       mileage_km: form.mileage_km != null && String(form.mileage_km) !== '' ? Number(form.mileage_km) : null,
       notes: form.notes?.trim() || null,
+      city: form.city?.trim() || 'Pointe-Noire',
     };
     const { error } = form.id
       ? await supabase.from('vehicles').update(values).eq('id', form.id)
@@ -467,7 +472,7 @@ function Fleet({ modelId, vehicles, onChanged }: { modelId: string; vehicles: Ve
           <View style={ui.flex1}>
             <Text style={ui.strong}>{v.plate_number}</Text>
             <Text style={ui.small}>
-              {[v.color, v.year, v.mileage_km != null ? `${v.mileage_km.toLocaleString('fr-FR')} km` : null].filter(Boolean).join(' · ') || '—'}
+              {[v.city, v.color, v.year, v.mileage_km != null ? `${v.mileage_km.toLocaleString('fr-FR')} km` : null].filter(Boolean).join(' · ') || '—'}
             </Text>
           </View>
           <Badge label={VEHICLE_STATUS[v.status].label} tone={VEHICLE_STATUS[v.status].tone} />
@@ -510,6 +515,14 @@ function Fleet({ modelId, vehicles, onChanged }: { modelId: string; vehicles: Ve
           value={form.status ?? 'available'}
           onChange={(s) => setForm({ ...form, status: s })}
         />
+        {cities.length > 0 && (
+          <Choice
+            label="Ville (courses)"
+            options={[...new Set([...cities, ...(form.city ? [form.city] : [])])].map((c) => ({ value: c, label: c }))}
+            value={form.city ?? cities[0]}
+            onChange={(c) => setForm({ ...form, city: c })}
+          />
+        )}
         <TextField label="Notes" multiline value={form.notes ?? ''} onChangeText={(t) => setForm({ ...form, notes: t })} />
         <FormError message={err} />
       </Sheet>

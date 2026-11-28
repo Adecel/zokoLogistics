@@ -116,9 +116,27 @@ function HomeContent({ settings }: { settings: Settings }) {
         </LinearGradient>
       ) : null}
 
+      {/* Immediate ride */}
+      {settings.rides_enabled && (
+        <Pressable
+          onPress={() => router.push('/ride')}
+          style={({ pressed }) => [styles.card, styles.ride, pressed && { opacity: 0.9 }]}
+          accessibilityRole="button"
+        >
+          <View style={styles.rideIcon}>
+            <Ionicons name="flash" size={22} color={Colors.white} />
+          </View>
+          <View style={styles.flexShrink}>
+            <Text style={styles.cardTitle}>Course immédiate</Text>
+            <Text style={styles.hint}>Un chauffeur maintenant, prix fixe par quartier</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.primary} style={styles.rideChevron} />
+        </Pressable>
+      )}
+
       {/* Search */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Rechercher un véhicule</Text>
+        <Text style={styles.cardTitle}>Réserver un véhicule à l’heure</Text>
 
         <View style={styles.field}>
           <Text style={styles.label}>Date</Text>
@@ -246,6 +264,16 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   cardTitle: { fontFamily: Fonts.bold, fontSize: 17, color: Colors.navy },
+  ride: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderColor: Colors.primary },
+  rideIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rideChevron: { marginLeft: 'auto' },
   field: { gap: Spacing.xs },
   label: { fontFamily: Fonts.medium, fontSize: 14, color: Colors.text },
   hint: { fontFamily: Fonts.regular, fontSize: 12, color: Colors.textMuted },

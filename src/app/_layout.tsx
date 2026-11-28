@@ -45,6 +45,9 @@ function RootNavigator() {
       {/* Team dashboard: has its own login and access rules (admin/_layout.tsx) */}
       <Stack.Screen name="admin" />
 
+      {/* Terms and privacy policy: readable before and after login */}
+      <Stack.Screen name="legal/[doc]" />
+
       {/* Visitors: login, sign-up */}
       <Stack.Protected guard={!loggedIn}>
         <Stack.Screen name="login" />
@@ -57,6 +60,7 @@ function RootNavigator() {
         <Stack.Screen name="vehicles/index" />
         <Stack.Screen name="vehicles/[id]" />
         <Stack.Screen name="booking/[id]" />
+        <Stack.Screen name="ride/index" />
         <Stack.Screen name="payment/[id]" />
         <Stack.Screen name="reservation/[id]" />
         <Stack.Screen name="account/info" />

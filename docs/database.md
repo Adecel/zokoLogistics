@@ -43,6 +43,18 @@ erDiagram
 | `reservation_status_history` | Qui a changé le statut, quand : **traçabilité complète**. |
 | `notifications` | Notifications dans l'app pour les clients et l'équipe. |
 | `app_settings` | Règles modifiables sans toucher au code (délai minimum, remboursement le jour J...). |
+| `ride_zones` | Zones des **courses immédiates** : arrondissements ou quartiers reconnus, par ville. |
+| `ride_routes` | Trajet zone A ↔ zone B (même prix dans les deux sens) et sa durée estimée. |
+| `ride_fares` | Prix d'un trajet **pour chaque modèle**, avec historique. Modifiable par les agents. |
+
+## Courses immédiates
+
+Faute de GPS fiable, une course n'est pas facturée à la distance : le prix est **forfaitaire** pour le trajet « zone de départ → zone d'arrivée » et dépend du modèle (`ride_fares`).
+
+- Une course est une réservation avec `kind = 'ride'`. Elle part **maintenant** et bloque un véhicule réel pendant « approche du chauffeur (`ride_pickup_minutes`) + durée du trajet ». La règle « pas de double réservation » s'applique donc aussi entre courses et locations.
+- Le véhicule attribué doit être basé dans la **ville** de la course (`vehicles.city`).
+- Le client paie **au chauffeur** à l'arrivée ; l'agent encaisse depuis la fiche. Le client peut annuler tant que la course n'a pas commencé, mais pas la modifier.
+- Réglages : `rides_enabled`, `ride_hours`, `ride_pickup_minutes`. Zones et prix : Tableau de bord > Courses (gérant, agents, admin).
 
 ## Vie d'une réservation
 
