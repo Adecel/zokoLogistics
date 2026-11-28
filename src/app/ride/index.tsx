@@ -115,7 +115,8 @@ function RideForm({ settings, zones }: { settings: Settings; zones: NonNullable<
     if (!pickup.trim()) next.pickup = 'Indiquez où le chauffeur doit vous prendre';
     const digits = phoneDigits(phone);
     if (!digits) next.phone = 'Numéro invalide (ex. 06 123 45 67)';
-    if (from && to && !chosen) next.vehicle = 'Choisissez un véhicule disponible';
+    // No price for this route: the card already says so, no second message
+    if (from && to && !chosen && options.length > 0) next.vehicle = 'Choisissez un véhicule disponible';
     setErrors(next);
     if (Object.keys(next).length > 0 || !from || !to || !chosen || !digits) return;
 
