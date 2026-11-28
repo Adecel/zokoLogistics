@@ -27,6 +27,10 @@ export type Settings = {
   rides_enabled: boolean;
   ride_hours: { start: string; end: string };
   ride_pickup_minutes: number;
+  partners_enabled: boolean;
+  partner_share_pct_owner_drives: number;
+  partner_share_pct_zoko_drives: number;
+  partner_fee_note: string;
 };
 
 export type PaymentMethodKey = 'cash' | 'airtel_money' | 'mtn_mobile_money' | 'bank_transfer';
@@ -64,6 +68,10 @@ const DEFAULTS: Settings = {
   rides_enabled: false,
   ride_hours: { start: '06:00', end: '22:00' },
   ride_pickup_minutes: 20,
+  partners_enabled: false,
+  partner_share_pct_owner_drives: 0,
+  partner_share_pct_zoko_drives: 0,
+  partner_fee_note: '',
 };
 
 async function fetchSettings(): Promise<Settings> {

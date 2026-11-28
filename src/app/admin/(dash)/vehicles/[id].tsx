@@ -57,6 +57,7 @@ type Vehicle = {
   mileage_km: number | null;
   notes: string | null;
   city: string;
+  owner_id: string | null;
 };
 
 export default function VehicleScreen() {
@@ -77,7 +78,7 @@ function VehicleEditor() {
       supabase.from('vehicle_models').select('id, brand, name, seats, transmission, fuel_type, features, description, is_active').eq('id', id).maybeSingle().then(unwrap),
       supabase.from('vehicle_photos').select('id, url, position').eq('model_id', id).order('position').then(unwrap),
       supabase.from('rates').select('id, duration_hours, price, valid_from, valid_to').eq('model_id', id).order('valid_from', { ascending: false }).then(unwrap),
-      supabase.from('vehicles').select('id, plate_number, color, year, status, mileage_km, notes, city').eq('model_id', id).order('plate_number').then(unwrap),
+      supabase.from('vehicles').select('id, plate_number, color, year, status, mileage_km, notes, city, owner_id').eq('model_id', id).order('plate_number').then(unwrap),
       supabase.from('ride_zones').select('city').then(unwrap),
     ]);
     return {
@@ -475,6 +476,7 @@ function Fleet({ modelId, vehicles, cities, onChanged }: { modelId: string; vehi
               {[v.city, v.color, v.year, v.mileage_km != null ? `${v.mileage_km.toLocaleString('fr-FR')} km` : null].filter(Boolean).join(' · ') || '—'}
             </Text>
           </View>
+          {v.owner_id && <Badge label="Partenaire" tone="info" />}
           <Badge label={VEHICLE_STATUS[v.status].label} tone={VEHICLE_STATUS[v.status].tone} />
           {can(profile?.role, 'delete') && (
             <Pressable onPress={() => remove(v)} hitSlop={8} accessibilityLabel="Supprimer">

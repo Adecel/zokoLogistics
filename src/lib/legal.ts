@@ -4,7 +4,7 @@ import type { Settings } from './settings';
 // Rules that the team can change (cancellation, fuel, contacts) are read
 // from app_settings so the text always matches the app.
 
-export type LegalDocKey = 'terms' | 'privacy';
+export type LegalDocKey = 'terms' | 'privacy' | 'partner';
 
 export type LegalSection = { title: string; paragraphs?: string[]; items?: string[] };
 
@@ -208,6 +208,70 @@ function privacy(settings?: Settings): LegalDoc {
   };
 }
 
+function partner(settings?: Settings): LegalDoc {
+  const owner = settings?.partner_share_pct_owner_drives;
+  const zoko = settings?.partner_share_pct_zoko_drives;
+  return {
+    title: 'Conditions Zoko Partenaire',
+    updated: UPDATED,
+    intro:
+      'Ces conditions s’ajoutent aux conditions d’utilisation. Elles s’appliquent si vous mettez votre véhicule à disposition de Zoko.',
+    sections: [
+      {
+        title: '1. Inscription',
+        items: [
+          settings?.partner_fee_note || 'L’inscription est gratuite pendant le lancement.',
+          'Zoko pourra rendre l’inscription payante plus tard. Vous serez prévenu à l’avance et pourrez arrêter sans frais.',
+          'Le gérant de Zoko valide votre compte, puis chaque véhicule. Il peut refuser ou suspendre un compte.',
+        ],
+      },
+      {
+        title: '2. Votre véhicule',
+        items: [
+          'Vous êtes propriétaire du véhicule, ou autorisé par écrit à le mettre à disposition.',
+          'Il est assuré, en règle (carte grise, visite technique) et en bon état. Vous fournissez les documents si Zoko les demande.',
+          'Les informations et photos que vous envoyez sont exactes.',
+          'Zoko fixe le prix proposé aux clients selon le modèle et l’état du véhicule.',
+        ],
+      },
+      {
+        title: '3. Disponibilités et missions',
+        items: [
+          'Vous indiquez quand votre véhicule est disponible : maintenant (courses immédiates) ou à des dates précises (réservations).',
+          'Zoko attribue les missions. Vous pouvez refuser une mission avant son début ; prévenez le plus tôt possible.',
+          'Des refus répétés ou des absences peuvent entraîner la suspension du compte.',
+          'Si vous conduisez : permis valide, respect du code de la route, ponctualité et courtoisie envers les clients.',
+        ],
+      },
+      {
+        title: '4. Rémunération',
+        items: [
+          owner !== undefined && zoko !== undefined
+            ? `Vous recevez ${owner} % du prix de la mission quand vous conduisez, ${zoko} % quand Zoko conduit (taux en vigueur au moment de l’attribution).`
+            : 'Vous recevez un pourcentage du prix de la mission, affiché dans votre espace partenaire.',
+          'Les gains affichés dans l’application sont des estimations. Zoko vous règle selon les missions réellement effectuées et payées.',
+          'Zoko peut modifier ces pourcentages pour les missions futures, en vous prévenant.',
+        ],
+      },
+      {
+        title: '5. Responsabilités',
+        items: [
+          'Pendant une mission conduite par un chauffeur Zoko ou par un client, l’usage du véhicule est encadré par le contrat de location de Zoko.',
+          'En cas de dommage, d’accident ou d’amende, prévenez Zoko immédiatement. Les responsabilités sont établies selon le contrat et l’assurance.',
+          'L’entretien courant du véhicule reste à votre charge.',
+        ],
+      },
+      {
+        title: '6. Arrêter',
+        paragraphs: [
+          'Vous pouvez désactiver votre véhicule à tout moment (plus de disponibilité) ou demander à quitter le programme. Les missions déjà acceptées doivent être assurées ou refusées à temps.',
+        ],
+      },
+      { title: '7. Nous contacter', paragraphs: [contactLine(settings)] },
+    ],
+  };
+}
+
 export function legalDoc(key: LegalDocKey, settings?: Settings): LegalDoc {
-  return key === 'terms' ? terms(settings) : privacy(settings);
+  return key === 'terms' ? terms(settings) : key === 'partner' ? partner(settings) : privacy(settings);
 }

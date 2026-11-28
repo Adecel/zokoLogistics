@@ -58,7 +58,13 @@ insert into public.app_settings (key, value, is_public, description) values
   -- Courses immédiates (prix forfaitaires par zone)
   ('rides_enabled',       'true',                                     true, 'Courses : proposées aux clients (true / false)'),
   ('ride_hours',          '{"start": "06:00", "end": "22:00"}',       true, 'Courses : heures où un client peut commander'),
-  ('ride_pickup_minutes', '20',                                       true, 'Courses : minutes pour que le chauffeur arrive (ajoutées au blocage du véhicule)')
+  ('ride_pickup_minutes', '20',                                       true, 'Courses : minutes pour que le chauffeur arrive (ajoutées au blocage du véhicule)'),
+
+  -- Zoko Partenaire
+  ('partners_enabled',               'true',  true, 'Zoko Partenaire : inscriptions ouvertes (true / false)'),
+  ('partner_share_pct_owner_drives', '70',    true, 'Zoko Partenaire : % du prix pour le partenaire quand il conduit lui-même'),
+  ('partner_share_pct_zoko_drives',  '50',    true, 'Zoko Partenaire : % du prix pour le partenaire quand Zoko conduit'),
+  ('partner_fee_note',               '"Inscription gratuite pendant le lancement."', true, 'Zoko Partenaire : conditions d''inscription affichées')
 on conflict (key) do update
   set is_public = excluded.is_public,
       description = excluded.description;

@@ -49,6 +49,8 @@ type Reservation = {
   from_zone_name: string | null;
   to_zone_name: string | null;
   ride_minutes: number | null;
+  driven_by_owner: boolean;
+  owner_contact: { name: string; phone: string | null } | null;
 };
 
 type Payment = {
@@ -65,7 +67,7 @@ const RESERVATION_FIELDS =
   'id, reference, status, start_at, end_at, duration_hours, pickup_address, dropoff_address, contact_phone, model_id, model_name, ' +
   'promotion_code, discount_amount, amount_due, amount_paid, amount_refunded, balance, created_at, confirmed_at, cancelled_at, ' +
   'cancellation_reason, actual_start_at, actual_end_at, with_driver, driver_name, driver_phone, client_license_number, ' +
-  'kind, from_zone_name, to_zone_name, ride_minutes';
+  'kind, from_zone_name, to_zone_name, ride_minutes, driven_by_owner, owner_contact';
 
 export default function ReservationStatusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -227,7 +229,11 @@ function rideHeadline(r: Reservation): { icon: IconName; kind: HeadlineKind; tit
         icon: 'car-sport',
         kind: 'success',
         title: 'Votre chauffeur arrive',
-        text: r.driver_name ? `${r.driver_name} vient vous chercher.` : 'Un véhicule vous est attribué. Nous vous appelons si besoin.',
+        text: r.driven_by_owner && r.owner_contact
+          ? `${r.owner_contact.name} vient vous chercher.`
+          : r.driver_name
+            ? `${r.driver_name} vient vous chercher.`
+            : 'Un véhicule vous est attribué. Nous vous appelons si besoin.',
       };
     case 'in_progress':
       return { icon: 'navigate', kind: 'info', title: 'Course en cours', text: 'Bonne route avec Zoko !' };
@@ -422,9 +428,11 @@ function StatusView({
               icon="person-outline"
               label="Chauffeur"
               value={
-                r.driver_name
-                  ? r.driver_name + (r.driver_phone ? ` · ${r.driver_phone}` : '')
-                  : 'Attribué par Zoko à la confirmation'
+                r.driven_by_owner && r.owner_contact
+                  ? `${r.owner_contact.name}${r.owner_contact.phone ? ` · ${r.owner_contact.phone}` : ''} (propriétaire du véhicule)`
+                  : r.driver_name
+                    ? r.driver_name + (r.driver_phone ? ` · ${r.driver_phone}` : '')
+                    : 'Attribué par Zoko à la confirmation'
               }
             />
           ) : (

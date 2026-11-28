@@ -10,10 +10,10 @@ import { useSettings } from '../../lib/settings';
 // Public page (no login needed): /legal/terms and /legal/privacy
 export default function LegalScreen() {
   const { doc: param } = useLocalSearchParams<{ doc: string }>();
-  const key: LegalDocKey = param === 'privacy' ? 'privacy' : 'terms';
+  const key: LegalDocKey = param === 'privacy' || param === 'partner' ? param : 'terms';
   const { settings } = useSettings(); // text still shows while settings load
   const doc = legalDoc(key, settings ?? undefined);
-  const other: LegalDocKey = key === 'terms' ? 'privacy' : 'terms';
+  const other: LegalDocKey = key === 'privacy' ? 'terms' : 'privacy';
 
   return (
     <SafeAreaView style={s.flex} edges={['top', 'bottom']}>
