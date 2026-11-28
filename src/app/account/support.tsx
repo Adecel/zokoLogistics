@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -75,12 +76,16 @@ export default function SupportScreen() {
             </View>
           ))}
         </View>
+
+        <Text style={[s.cardTitle, styles.spaced]}>Informations légales</Text>
+        <Contact icon="document-text" color={Colors.navy} label="Conditions d’utilisation" onPress={() => router.push('/legal/terms')} />
+        <Contact icon="shield-checkmark" color={Colors.navy} label="Politique de confidentialité" onPress={() => router.push('/legal/privacy')} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Contact({ icon, color, label, value, onPress }: { icon: IconName; color: string; label: string; value: string; onPress: () => void }) {
+function Contact({ icon, color, label, value, onPress }: { icon: IconName; color: string; label: string; value?: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [s.card, styles.contact, pressed && { opacity: 0.8 }]}>
       <View style={[styles.contactIcon, { backgroundColor: color }]}>
@@ -88,7 +93,7 @@ function Contact({ icon, color, label, value, onPress }: { icon: IconName; color
       </View>
       <View style={styles.flex1}>
         <Text style={styles.contactLabel}>{label}</Text>
-        <Text style={s.muted}>{value}</Text>
+        {value ? <Text style={s.muted}>{value}</Text> : null}
       </View>
       <Ionicons name="open-outline" size={18} color={Colors.textMuted} />
     </Pressable>
