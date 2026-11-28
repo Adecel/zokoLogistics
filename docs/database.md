@@ -47,6 +47,20 @@ erDiagram
 | `ride_routes` | Trajet zone A ↔ zone B (même prix dans les deux sens) et sa durée estimée. |
 | `ride_fares` | Prix d'un trajet **pour chaque modèle**, avec historique. Modifiable par les agents. |
 
+| `partners` | **Zoko Partenaire** : demande d'un propriétaire (ville, conduit-il lui-même, permis), validée par le gérant. |
+| `partner_vehicles` | Véhicules proposés par les partenaires. Validés par le gérant, ils entrent dans `vehicles` avec `owner_id`. |
+| `vehicle_availability` | Plages de disponibilité futures d'un véhicule partenaire (réservations). |
+
+## Zoko Partenaire
+
+Des particuliers mettent leur véhicule à disposition.
+
+- Le client demande à devenir partenaire (onglet Partenaire), le **gérant** valide. Le partenaire propose ensuite ses véhicules ; le gérant valide chacun en le rattachant à un modèle du catalogue (ses prix) ou en créant un nouveau modèle (créé masqué, à compléter avec ses tarifs).
+- Un véhicule partenaire n'est proposé aux clients et attribuable que si : partenaire validé et actif, **et** « disponible maintenant » (départ dans l'heure) **ou** une plage `vehicle_availability` couvre tout le créneau. Les règles anti-chevauchement restent les mêmes.
+- `vehicles.drive_mode` : `owner` (le propriétaire conduit toujours ; jamais en location sans chauffeur), `zoko`, `either` (l'agent choisit). `reservations.driven_by_owner` indique qui conduit ; le client voit alors le nom et le téléphone du propriétaire.
+- Le partenaire voit ses missions (`partner_missions()`), peut refuser une mission confirmée (`partner_decline_mission`) : elle repasse en attente et les agents sont prévenus.
+- Gains : `reservations.partner_share_pct` est figé à l'attribution depuis les paramètres `partner_share_pct_owner_drives` / `partner_share_pct_zoko_drives`.
+
 ## Courses immédiates
 
 Faute de GPS fiable, une course n'est pas facturée à la distance : le prix est **forfaitaire** pour le trajet « zone de départ → zone d'arrivée » et dépend du modèle (`ride_fares`).

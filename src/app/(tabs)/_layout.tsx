@@ -39,6 +39,7 @@ function AppTabs() {
     >
       <Tabs.Screen name="home" options={{ title: 'Accueil', tabBarIcon: tabIcon('home', 'home-outline') }} />
       <Tabs.Screen name="reservations" options={{ title: 'Réservations', tabBarIcon: tabIcon('calendar', 'calendar-outline') }} />
+      <Tabs.Screen name="partner" options={{ title: 'Partenaire', tabBarIcon: tabIcon('car-sport', 'car-sport-outline') }} />
       <Tabs.Screen
         name="notifications"
         options={{

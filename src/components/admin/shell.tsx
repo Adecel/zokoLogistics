@@ -18,6 +18,7 @@ export const NAV: NavItem[] = [
   { href: '/admin/vehicles', label: 'Véhicules', icon: 'car-sport-outline', permission: 'fleet' },
   { href: '/admin/rides', label: 'Courses', icon: 'navigate-outline', permission: 'rides' },
   { href: '/admin/drivers', label: 'Chauffeurs', icon: 'id-card-outline', permission: 'drivers' },
+  { href: '/admin/partners', label: 'Partenaires', icon: 'people-circle-outline', permission: 'partners' },
   { href: '/admin/clients', label: 'Clients', icon: 'people-outline', permission: 'clients' },
   { href: '/admin/promotions', label: 'Promotions', icon: 'pricetag-outline', permission: 'promotions' },
   { href: '/admin/reports', label: 'Rapports', icon: 'bar-chart-outline', permission: 'reports' },

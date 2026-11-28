@@ -82,6 +82,9 @@ type Details = {
   to_zone_name: string | null;
   ride_city: string | null;
   ride_minutes: number | null;
+  driven_by_owner: boolean;
+  partner_share_pct: number | null;
+  owner_contact: { name: string; phone: string | null } | null;
 };
 
 type Extra = { client_notes: string | null; internal_notes: string | null };
@@ -352,7 +355,15 @@ function ReservationDetail() {
         <Card title="Véhicule et chauffeur">
           <InfoRow label="Modèle réservé" value={r.model_name} />
           <InfoRow label="Véhicule attribué" value={r.plate_number ?? 'Pas encore attribué'} />
-          {r.with_driver ? (
+          {r.partner_share_pct != null && (
+            <InfoRow label="Véhicule partenaire" value={`Part du partenaire : ${r.partner_share_pct} % · ${formatMoney((r.base_price - r.discount_amount) * r.partner_share_pct / 100)}`} />
+          )}
+          {r.driven_by_owner ? (
+            <InfoRow
+              label="Chauffeur"
+              value={`${r.owner_contact?.name ?? 'Le propriétaire'}${r.owner_contact?.phone ? ` · ${r.owner_contact.phone}` : ''} (propriétaire)`}
+            />
+          ) : r.with_driver ? (
             <InfoRow
               label="Chauffeur"
               value={
@@ -529,12 +540,22 @@ function InternalNotes({ id, initial, onSaved }: { id: string; initial: string; 
 // ---------------------------------------------------------------------------
 // Confirm: pick the vehicle (and the driver when one is wanted)
 
-type VehicleOption = { vehicle_id: string; plate_number: string; color: string | null; status: string; is_free: boolean };
+type VehicleOption = {
+  vehicle_id: string;
+  plate_number: string;
+  color: string | null;
+  status: string;
+  is_free: boolean;
+  owner_name: string | null; // partner vehicle
+  drive_mode: 'owner' | 'zoko' | 'either';
+  partner_free: boolean;
+};
 type DriverOption = { driver_id: string; full_name: string };
 
 function AssignSheet({ visible, reservation: r, onClose, onDone }: { visible: boolean; reservation: Details; onClose: () => void; onDone: () => void }) {
   const [vehicleId, setVehicleId] = useState<string | null>(r.vehicle_id);
   const [driverId, setDriverId] = useState<string | null>(r.driver_id);
+  const [ownerDrives, setOwnerDrives] = useState(r.driven_by_owner);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -553,9 +574,16 @@ function AssignSheet({ visible, reservation: r, onClose, onDone }: { visible: bo
     if (!vehicleId) return setErr('Choisissez un véhicule.');
     setSaving(true);
     setErr(null);
+    // The database also enforces who drives a partner vehicle (owner / Zoko)
+    const byOwner = r.with_driver && (selected?.drive_mode === 'owner' || (selected?.drive_mode === 'either' && !!selected.owner_name && ownerDrives));
     const { error } = await supabase
       .from('reservations')
-      .update({ status: 'confirmed', vehicle_id: vehicleId, driver_id: r.with_driver ? driverId : null })
+      .update({
+        status: 'confirmed',
+        vehicle_id: vehicleId,
+        driven_by_owner: byOwner,
+        driver_id: r.with_driver && !byOwner ? driverId : null,
+      })
       .eq('id', r.id);
     setSaving(false);
     if (error) return setErr(errorMessage(error, 'Confirmation impossible.'));
@@ -563,6 +591,9 @@ function AssignSheet({ visible, reservation: r, onClose, onDone }: { visible: bo
     onDone();
   }
 
+  const selected = options.data?.vehicles.find((v) => v.vehicle_id === vehicleId);
+  const partnerVehicle = !!selected?.owner_name;
+  const byOwnerNow = r.with_driver && partnerVehicle && (selected?.drive_mode === 'owner' || (selected?.drive_mode === 'either' && ownerDrives));
   const drivers = options.data?.drivers ?? [];
   // Keep the client's (or current) driver in the list even if the RPC filtered it out
   const driverChoices: { value: string; label: string }[] = [
@@ -611,15 +642,39 @@ function AssignSheet({ visible, reservation: r, onClose, onDone }: { visible: bo
             >
               <Ionicons name={vehicleId === v.vehicle_id ? 'radio-button-on' : 'radio-button-off'} size={20} color={Colors.primary} />
               <View style={ui.flex1}>
-                <Text style={ui.strong}>{v.plate_number}</Text>
+                <Text style={ui.strong}>
+                  {v.plate_number}
+                  {v.owner_name ? ` · partenaire ${v.owner_name}` : ''}
+                </Text>
                 <Text style={ui.small}>
-                  {v.color ?? ''} {v.is_free ? '· libre' : v.status !== 'available' ? '· indisponible (entretien / hors service)' : '· déjà pris sur ce créneau'}
+                  {v.color ?? ''}{' '}
+                  {v.is_free
+                    ? '· libre'
+                    : v.status !== 'available'
+                      ? '· indisponible (entretien / hors service)'
+                      : v.owner_name && !v.partner_free
+                        ? '· le partenaire n’est pas disponible sur ce créneau'
+                        : '· déjà pris sur ce créneau'}
+                  {v.owner_name ? ` · ${v.drive_mode === 'owner' ? 'le propriétaire conduit' : v.drive_mode === 'zoko' ? 'confié à Zoko' : 'propriétaire ou Zoko'}` : ''}
                 </Text>
               </View>
             </Pressable>
           ))}
 
-          {r.with_driver ? (
+          {r.with_driver && partnerVehicle && selected?.drive_mode === 'either' && (
+            <Choice
+              label="Qui conduit ce véhicule partenaire ?"
+              options={[
+                { value: 'owner', label: `Le propriétaire (${selected.owner_name})` },
+                { value: 'zoko', label: 'Un chauffeur Zoko' },
+              ]}
+              value={ownerDrives ? 'owner' : 'zoko'}
+              onChange={(v) => setOwnerDrives(v === 'owner')}
+            />
+          )}
+          {byOwnerNow ? (
+            <Notice text={`${selected?.owner_name} conduit son véhicule : il est notifié et peut refuser la mission.`} />
+          ) : r.with_driver ? (
             <>
               <Text style={ui.strong}>Chauffeur</Text>
               {driverChoices.length === 0 ? (

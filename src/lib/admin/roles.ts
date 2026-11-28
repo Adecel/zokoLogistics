@@ -37,6 +37,7 @@ export type Permission =
   | 'payments' // verify payments, refunds, charges
   | 'fleet' // vehicles, rates, photos
   | 'rides' // ride zones and prices
+  | 'partners' // Zoko Partenaire: approve owners and their vehicles
   | 'drivers'
   | 'clients'
   | 'clients.manage' // deactivate a client
@@ -53,6 +54,7 @@ const PERMISSIONS: Record<Permission, Role[]> = {
   payments: ['admin', 'manager', 'accountant', 'agent'],
   fleet: ['admin', 'manager'],
   rides: ['admin', 'manager', 'agent'],
+  partners: ['admin', 'manager'],
   drivers: ['admin', 'manager'],
   clients: ['admin', 'manager', 'accountant', 'agent'],
   'clients.manage': ['admin', 'manager'],
