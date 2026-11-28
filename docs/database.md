@@ -100,14 +100,18 @@ Même si l'application a un bug, la base refuse les erreurs :
 
 ## Qui voit quoi
 
-| | Client | Chauffeur | Agent | Comptable | Gérante / Admin |
-|---|---|---|---|---|---|
-| Catalogue et tarifs | ✔ | ✔ | ✔ | ✔ | ✔ + modifier |
-| Ses réservations | ✔ | celles qu'il conduit | toutes | toutes (lecture) | toutes |
-| Paiements | les siens | — | tous + valider | tous + valider | tous |
-| Véhicules (plaques) | — | ✔ | ✔ | ✔ | ✔ + modifier |
-| Rapports | ses chiffres | — | ✔ | ✔ | ✔ |
-| Rôles des comptes | — | — | — | — | ✔ |
+| | Client | Chauffeur | Agent | Finance | Gérant | Admin |
+|---|---|---|---|---|---|---|
+| Catalogue et tarifs | ✔ | ✔ | ✔ | ✔ | ✔ + modifier | ✔ + modifier |
+| Réservations et courses | les siennes | celles qu'il conduit | toutes + confirmer, attribuer | toutes (lecture) | — | toutes |
+| Paiements, frais, remboursements | les siens | — | voir l'état | tous + valider | — | tous |
+| Promotions | actives | — | — | ✔ + modifier | — | ✔ |
+| Rapports | — | — | — | ✔ | — | ✔ |
+| Véhicules, chauffeurs, partenaires | — | — | véhicules | véhicules | ✔ + modifier | ✔ |
+| Zones et prix des courses | — | — | ✔ + modifier | — | ✔ + modifier | ✔ |
+| Rôles des comptes | — | — | — | — | — | ✔ |
+
+Le gérant ne reçoit plus les notifications de réservations et de paiements : elles vont aux agents (réservations), à Finance (paiements) et à l'admin.
 
 ## Rapports prêts à l'emploi (vues SQL)
 

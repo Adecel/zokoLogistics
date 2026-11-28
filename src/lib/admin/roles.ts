@@ -19,9 +19,9 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export const ROLE_DESCRIPTIONS: Partial<Record<Role, string>> = {
   admin: 'Tous les droits, y compris la suppression',
-  manager: 'Flotte, chauffeurs, réservations, clients, paramètres',
-  accountant: 'Paiements, remboursements, frais et rapports',
-  agent: 'Suit et confirme les réservations, gère les zones et prix des courses',
+  manager: 'Flotte, chauffeurs, partenaires, clients, paramètres',
+  accountant: 'Réservations, paiements, remboursements, frais, promotions et rapports',
+  agent: 'Confirme et suit les réservations et les courses, gère les zones et prix des courses',
 };
 
 export function isStaff(profile: Pick<Profile, 'role' | 'is_active'> | null | undefined) {
@@ -49,17 +49,18 @@ export type Permission =
 
 const PERMISSIONS: Record<Permission, Role[]> = {
   dashboard: ['admin', 'manager', 'accountant', 'agent'],
-  reservations: ['admin', 'manager', 'accountant', 'agent'],
-  'reservations.operate': ['admin', 'manager', 'agent'],
-  payments: ['admin', 'manager', 'accountant', 'agent'],
+  // Réservations : Finance (lecture), agents (opérations) et admin ; pas le gérant
+  reservations: ['admin', 'accountant', 'agent'],
+  'reservations.operate': ['admin', 'agent'],
+  payments: ['admin', 'accountant'],
   fleet: ['admin', 'manager'],
   rides: ['admin', 'manager', 'agent'],
   partners: ['admin', 'manager'],
   drivers: ['admin', 'manager'],
   clients: ['admin', 'manager', 'accountant', 'agent'],
   'clients.manage': ['admin', 'manager'],
-  promotions: ['admin', 'manager'],
-  reports: ['admin', 'manager', 'accountant'],
+  promotions: ['admin', 'accountant'],
+  reports: ['admin', 'accountant'],
   settings: ['admin', 'manager'],
   team: ['admin'],
   delete: ['admin'],

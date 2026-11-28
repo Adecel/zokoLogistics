@@ -6,6 +6,8 @@ import { Avatar, Badge, Card, Choice, Empty, ListRow, Page, SearchBox, ui, useIs
 import { LoadError, Loading } from '../../../../components/load-state';
 import { formatDate, formatMoney } from '../../../../lib/admin/labels';
 import { unwrap, useLoad } from '../../../../lib/admin/use-load';
+import { can } from '../../../../lib/admin/roles';
+import { useAuth } from '../../../../lib/auth';
 import { supabase } from '../../../../lib/supabase';
 
 type Client = {
@@ -37,6 +39,9 @@ export default function ClientsScreen() {
 }
 
 function Clients() {
+  const { profile } = useAuth();
+  // Reservation counts and amounts: not for the manager
+  const seeReservations = can(profile?.role, 'reservations');
   const wide = useIsWide();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('active');
@@ -51,7 +56,9 @@ function Clients() {
         .is('requested_role', null)
         .neq('full_name', 'Compte supprimé')
         .then(unwrap),
-      supabase.from('report_client_stats').select('client_id, reservations, completed_rentals, cancellations, total_spent, last_rental_at').then(unwrap),
+      seeReservations
+        ? supabase.from('report_client_stats').select('client_id, reservations, completed_rentals, cancellations, total_spent, last_rental_at').then(unwrap)
+        : Promise.resolve([]),
     ]);
     const byId = new Map((stats as Stats[]).map((s) => [s.client_id, s]));
     return (clients as Client[]).map((c) => ({ ...c, stats: byId.get(c.id) }));
@@ -92,8 +99,12 @@ function Clients() {
             options={[
               { value: 'recent', label: 'Plus récents' },
               { value: 'name', label: 'Nom' },
-              { value: 'reservations', label: 'Réservations' },
-              { value: 'spent', label: 'Montant dépensé' },
+              ...(seeReservations
+                ? [
+                    { value: 'reservations' as const, label: 'Réservations' },
+                    { value: 'spent' as const, label: 'Montant dépensé' },
+                  ]
+                : []),
             ]}
             value={sort}
             onChange={setSort}
@@ -117,9 +128,11 @@ function Clients() {
                   </Text>
                 </View>
                 <View style={wide ? { width: 220 } : { marginTop: 2 }}>
-                  <Text style={ui.small}>
-                    {c.stats?.reservations ?? 0} réservation(s) · {formatMoney(c.stats?.total_spent ?? 0)}
-                  </Text>
+                  {seeReservations && (
+                    <Text style={ui.small}>
+                      {c.stats?.reservations ?? 0} réservation(s) · {formatMoney(c.stats?.total_spent ?? 0)}
+                    </Text>
+                  )}
                   <Text style={ui.small}>Inscrit le {formatDate(c.created_at)}</Text>
                 </View>
               </View>

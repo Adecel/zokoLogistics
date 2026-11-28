@@ -59,10 +59,15 @@ export default function ClientScreen() {
 
 function ClientDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { profile } = useAuth();
+  // Reservation history and amounts: not for the manager
+  const seeReservations = can(profile?.role, 'reservations');
   const { data, error, loading, reload } = useLoad(async () => {
     const [client, reservations] = await Promise.all([
       supabase.from('profiles').select('id, full_name, phone, email, role, is_active, created_at').eq('id', id).maybeSingle().then(unwrap),
-      supabase
+      !seeReservations
+        ? Promise.resolve([])
+        : supabase
         .from('reservation_details')
         .select('id, reference, status, start_at, duration_hours, model_name, amount_due, amount_paid, balance')
         .eq('client_id', id)
@@ -91,15 +96,18 @@ function ClientDetail() {
       refreshing={false}
       actions={<Button title="Retour" variant="ghost" icon="arrow-back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/admin/clients'))} />}
     >
+      {seeReservations && (
       <Grid min={200}>
         <Stat label="Réservations" value={res.length} icon="calendar-outline" />
         <Stat label="Terminées" value={done} icon="flag-outline" tone="success" />
         <Stat label="Annulées / absences" value={cancelled} icon="close-circle-outline" tone={cancelled ? 'warning' : 'neutral'} />
         <Stat label="Payé" value={formatMoney(spent)} icon="wallet-outline" tone="success" hint={owed ? `Reste dû : ${formatMoney(owed)}` : undefined} />
       </Grid>
+      )}
 
       <Grid min={340}>
         <ClientForm key={`${c.id}-${c.is_active}`} client={c} onSaved={reload} />
+        {seeReservations && (
         <Card title="Réservations">
           {res.length === 0 && <Empty icon="calendar-outline" text="Aucune réservation." />}
           {res.map((r) => {
@@ -123,6 +131,7 @@ function ClientDetail() {
             );
           })}
         </Card>
+        )}
       </Grid>
     </Page>
   );

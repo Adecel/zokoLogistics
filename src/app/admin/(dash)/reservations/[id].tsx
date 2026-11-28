@@ -269,7 +269,10 @@ function ReservationDetail() {
       {operate && ['pending', 'confirmed', 'in_progress'].includes(r.status) && (
         <Card title="Actions">
           {ride && r.status === 'pending' && (
-            <Notice tone="info" text="Course immédiate : attribuez un véhicule et un chauffeur tout de suite. Le client paie au chauffeur à l’arrivée : encaissez ensuite avec « Encaisser »." />
+            <Notice
+              tone="info"
+              text={`Course immédiate : attribuez un véhicule et un chauffeur tout de suite. Le client paie au chauffeur à l’arrivée ; ${finance ? 'encaissez ensuite avec « Encaisser »' : 'Finance enregistre ensuite le paiement'}.`}
+            />
           )}
           {!ride && r.status === 'pending' && r.balance > 0 && (
             <Notice tone="warning" text={`Paiement non soldé : reste ${formatMoney(r.balance)}. Vérifiez les paiements avant de confirmer.`} />
@@ -308,7 +311,7 @@ function ReservationDetail() {
                   setStatus('completed', {
                     title: ride ? 'Terminer la course' : 'Terminer la location',
                     message: ride
-                      ? `Le client est arrivé. Pensez à encaisser ${formatMoney(Math.max(0, r.balance))}.`
+                      ? `Le client est arrivé. ${formatMoney(Math.max(0, r.balance))} à encaisser par le chauffeur, puis à enregistrer par Finance.`
                       : 'Le véhicule a été rendu. Ajoutez d’éventuels frais (dépassement, carburant) avant ou après.',
                   })
                 }
