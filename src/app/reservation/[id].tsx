@@ -45,6 +45,10 @@ type Reservation = {
   driver_name: string | null;
   driver_phone: string | null;
   client_license_number: string | null;
+  kind: 'rental' | 'ride';
+  from_zone_name: string | null;
+  to_zone_name: string | null;
+  ride_minutes: number | null;
 };
 
 type Payment = {
@@ -60,7 +64,8 @@ type Payment = {
 const RESERVATION_FIELDS =
   'id, reference, status, start_at, end_at, duration_hours, pickup_address, dropoff_address, contact_phone, model_id, model_name, ' +
   'promotion_code, discount_amount, amount_due, amount_paid, amount_refunded, balance, created_at, confirmed_at, cancelled_at, ' +
-  'cancellation_reason, actual_start_at, actual_end_at, with_driver, driver_name, driver_phone, client_license_number';
+  'cancellation_reason, actual_start_at, actual_end_at, with_driver, driver_name, driver_phone, client_license_number, ' +
+  'kind, from_zone_name, to_zone_name, ride_minutes';
 
 export default function ReservationStatusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -143,6 +148,7 @@ function headline(
   paymentPending: boolean,
   cashPending: boolean,
 ): { icon: IconName; kind: HeadlineKind; title: string; text: string } {
+  if (r.kind === 'ride') return rideHeadline(r);
   switch (r.status) {
     case 'confirmed':
       return {
@@ -214,6 +220,40 @@ function headline(
   }
 }
 
+function rideHeadline(r: Reservation): { icon: IconName; kind: HeadlineKind; title: string; text: string } {
+  switch (r.status) {
+    case 'confirmed':
+      return {
+        icon: 'car-sport',
+        kind: 'success',
+        title: 'Votre chauffeur arrive',
+        text: r.driver_name ? `${r.driver_name} vient vous chercher.` : 'Un véhicule vous est attribué. Nous vous appelons si besoin.',
+      };
+    case 'in_progress':
+      return { icon: 'navigate', kind: 'info', title: 'Course en cours', text: 'Bonne route avec Zoko !' };
+    case 'completed':
+      return { icon: 'flag', kind: 'success', title: 'Course terminée', text: 'Merci d’avoir voyagé avec Zoko.' };
+    case 'cancelled':
+      return { icon: 'close', kind: 'danger', title: 'Course annulée', text: r.cancellation_reason ?? 'Cette course a été annulée.' };
+    case 'rejected':
+      return {
+        icon: 'close',
+        kind: 'danger',
+        title: 'Course refusée',
+        text: r.cancellation_reason ?? 'Aucun véhicule n’est disponible pour le moment. Réessayez un peu plus tard.',
+      };
+    case 'no_show':
+      return { icon: 'alert', kind: 'danger', title: 'Client absent', text: 'Le chauffeur ne vous a pas trouvé au point de départ.' };
+    default:
+      return {
+        icon: 'hourglass-outline',
+        kind: 'waiting',
+        title: 'Course demandée !',
+        text: 'Un agent vous attribue un véhicule et un chauffeur. Vous recevez une notification dès que c’est fait.',
+      };
+  }
+}
+
 const KIND_COLORS: Record<HeadlineKind, string> = {
   success: Colors.success,
   waiting: Colors.warning,
@@ -256,11 +296,19 @@ function StatusView({
   const color = KIND_COLORS[head.kind];
   const stopped = ['cancelled', 'rejected', 'no_show'].includes(r.status);
 
-  const canPay = !stopped && r.status !== 'completed' && r.balance > 0 && !paymentPending;
-  const canCancel = ['pending', 'confirmed'].includes(r.status) && new Date(r.start_at) > new Date();
+  const ride = r.kind === 'ride';
+  const canPay = !ride && !stopped && r.status !== 'completed' && r.balance > 0 && !paymentPending;
+  const canCancel = ['pending', 'confirmed'].includes(r.status) && (ride || new Date(r.start_at) > new Date());
 
   // Progress steps
-  const steps: { label: string; done: boolean; at?: string | null }[] = [
+  const steps: { label: string; done: boolean; at?: string | null }[] = ride
+    ? [
+        { label: 'Course demandée', done: true, at: r.created_at },
+        { label: 'Véhicule et chauffeur attribués', done: !!r.confirmed_at, at: r.confirmed_at },
+        { label: 'Course en cours', done: !!r.actual_start_at, at: r.actual_start_at },
+        { label: 'Arrivée', done: r.status === 'completed', at: r.actual_end_at },
+      ]
+    : [
     { label: 'Demande envoyée', done: true, at: r.created_at },
     {
       label: cashPending ? 'Paiement en espèces au départ' : paymentPending ? 'Paiement en vérification' : 'Paiement vérifié',
@@ -270,7 +318,7 @@ function StatusView({
     { label: 'Confirmée par un agent', done: !!r.confirmed_at, at: r.confirmed_at },
     { label: 'Location en cours', done: !!r.actual_start_at, at: r.actual_start_at },
     { label: 'Terminée', done: r.status === 'completed', at: r.actual_end_at },
-  ];
+      ];
 
   // Cancellation
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -278,8 +326,9 @@ function StatusView({
   const [cancelError, setCancelError] = useState<string | null>(null);
   const daysLeft = daysUntilStart(r.start_at, settings.utc_offset);
   const fullRefund = daysLeft >= settings.free_cancel_until_days_before;
-  const refundText =
-    r.amount_paid > 0
+  const refundText = ride
+    ? 'L’annulation d’une course est gratuite.'
+    : r.amount_paid > 0
       ? fullRefund
         ? 'Vous serez remboursé intégralement.'
         : `Annulation tardive : ${settings.same_day_cancel_refund_pct} % du montant payé vous sera remboursé.`
@@ -290,7 +339,7 @@ function StatusView({
     setCancelError(null);
     const { error } = await supabase
       .from('reservations')
-      .update({ status: 'cancelled', cancellation_reason: 'Annulée par le client' })
+      .update({ status: 'cancelled', cancellation_reason: ride ? 'Course annulée par le client' : 'Annulée par le client' })
       .eq('id', r.id);
     setCancelling(false);
     if (error) {
@@ -312,7 +361,7 @@ function StatusView({
         >
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
-        <Text style={styles.title}>Ma réservation</Text>
+        <Text style={styles.title}>{ride ? 'Ma course' : 'Ma réservation'}</Text>
       </View>
 
       <ScrollView
@@ -341,16 +390,32 @@ function StatusView({
           <View style={styles.flex1}>
             <Text style={styles.vehicleName}>{r.model_name}</Text>
             <Text style={styles.muted}>
-              {r.with_driver ? 'Avec chauffeur' : 'Sans chauffeur'} · {r.duration_hours} h
+              {ride
+                ? `Course · environ ${r.ride_minutes ?? 0} min`
+                : `${r.with_driver ? 'Avec chauffeur' : 'Sans chauffeur'} · ${r.duration_hours} h`}
             </Text>
           </View>
         </View>
 
         <View style={styles.card}>
-          <Row icon="calendar-outline" label="Début" value={fmt(r.start_at)} />
-          <Row icon="time-outline" label="Fin prévue" value={fmt(r.end_at)} />
-          <Row icon="location-outline" label="Prise en charge" value={r.pickup_address} />
-          {r.dropoff_address ? <Row icon="flag-outline" label="Restitution" value={r.dropoff_address} /> : null}
+          {ride ? (
+            <>
+              <Row icon="radio-button-on" label="Départ" value={`${r.from_zone_name ?? ''} · ${r.pickup_address}`} />
+              <Row
+                icon="flag-outline"
+                label="Arrivée"
+                value={`${r.to_zone_name ?? ''}${r.dropoff_address ? ` · ${r.dropoff_address}` : ''}`}
+              />
+              <Row icon="time-outline" label="Commandée le" value={fmt(r.created_at)} />
+            </>
+          ) : (
+            <>
+              <Row icon="calendar-outline" label="Début" value={fmt(r.start_at)} />
+              <Row icon="time-outline" label="Fin prévue" value={fmt(r.end_at)} />
+              <Row icon="location-outline" label="Prise en charge" value={r.pickup_address} />
+              {r.dropoff_address ? <Row icon="flag-outline" label="Restitution" value={r.dropoff_address} /> : null}
+            </>
+          )}
           <Row icon="call-outline" label="Contact" value={r.contact_phone} />
           {r.with_driver ? (
             <Row
@@ -402,7 +467,14 @@ function StatusView({
           <MoneyRow label="Payé (vérifié)" value={formatPrice(r.amount_paid, currency)} />
           {r.amount_refunded > 0 && <MoneyRow label="Remboursé" value={formatPrice(r.amount_refunded, currency)} />}
           <View style={styles.divider} />
-          <MoneyRow label="Reste à payer" value={formatPrice(Math.max(0, r.balance), currency)} bold />
+          <MoneyRow
+            label={ride && r.balance > 0 ? 'À payer au chauffeur' : 'Reste à payer'}
+            value={formatPrice(Math.max(0, r.balance), currency)}
+            bold
+          />
+          {ride && r.balance > 0 && !stopped ? (
+            <Text style={styles.muted}>En espèces ou par Mobile Money, à l’arrivée.</Text>
+          ) : null}
           {payments.map((p) => (
             <View key={p.id} style={styles.paymentRow}>
               <Ionicons
@@ -427,19 +499,21 @@ function StatusView({
         {/* Modify / cancel (until the rental starts) */}
         {canCancel && !confirmCancel && (
           <>
-            <ZokoButton
-              title="Modifier la réservation"
-              variant="outline"
-              onPress={() => router.push({ pathname: '/booking/[id]', params: { id: r.model_id, edit: r.id } })}
-            />
+            {!ride && (
+              <ZokoButton
+                title="Modifier la réservation"
+                variant="outline"
+                onPress={() => router.push({ pathname: '/booking/[id]', params: { id: r.model_id, edit: r.id } })}
+              />
+            )}
             <Pressable onPress={() => setConfirmCancel(true)} style={styles.cancelLink} hitSlop={8}>
-              <Text style={styles.cancelLinkText}>Annuler la réservation</Text>
+              <Text style={styles.cancelLinkText}>{ride ? 'Annuler la course' : 'Annuler la réservation'}</Text>
             </Pressable>
           </>
         )}
         {canCancel && confirmCancel && (
           <View style={[styles.card, styles.cancelBox]}>
-            <Text style={styles.cardTitle}>Annuler cette réservation ?</Text>
+            <Text style={styles.cardTitle}>{ride ? 'Annuler cette course ?' : 'Annuler cette réservation ?'}</Text>
             <Text style={styles.muted}>{refundText}</Text>
             {cancelError ? <Text style={styles.error}>{cancelError}</Text> : null}
             <View style={styles.cancelActions}>

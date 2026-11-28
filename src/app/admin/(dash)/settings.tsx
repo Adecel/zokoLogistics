@@ -26,6 +26,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
     title: 'Règles de réservation',
     keys: ['min_days_ahead', 'max_days_ahead', 'booking_hours', 'included_fuel_liters', 'free_cancel_until_days_before', 'same_day_cancel_refund_pct', 'booking_conditions'],
   },
+  { title: 'Courses immédiates', keys: ['rides_enabled', 'ride_hours', 'ride_pickup_minutes'] },
   { title: 'Paiement', keys: ['payment_methods', 'payment_note'] },
   { title: 'Textes de l’application', keys: ['welcome_tagline', 'home_subtitle', 'home_banner', 'pricing_note'] },
 ];

@@ -16,6 +16,7 @@ import { supabase } from '../../../../lib/supabase';
 
 type Filter = 'all' | 'pending' | 'confirmed' | 'in_progress' | 'past' | 'cancelled';
 type PayFilter = 'all' | 'unpaid' | 'partial' | 'paid';
+type KindFilter = 'all' | 'rental' | 'ride';
 
 const FILTERS: { value: Filter; label: string; statuses: ReservationStatus[] | null }[] = [
   { value: 'all', label: 'Toutes', statuses: null },
@@ -41,6 +42,9 @@ type Row = {
   amount_due: number;
   amount_paid: number;
   balance: number;
+  kind: 'rental' | 'ride';
+  from_zone_name: string | null;
+  to_zone_name: string | null;
 };
 
 export default function ReservationsScreen() {
@@ -52,27 +56,29 @@ export default function ReservationsScreen() {
 }
 
 function ReservationsList() {
-  const params = useLocalSearchParams<{ status?: string }>();
+  const params = useLocalSearchParams<{ status?: string; kind?: string }>();
   const wide = useIsWide();
   const [filter, setFilter] = useState<Filter>(
     FILTERS.some((f) => f.value === params.status) ? (params.status as Filter) : 'all',
   );
   const [pay, setPay] = useState<PayFilter>('all');
+  const [kind, setKind] = useState<KindFilter>(params.kind === 'ride' || params.kind === 'rental' ? params.kind : 'all');
   const [search, setSearch] = useState('');
 
   const { data, error, loading, reload } = useLoad(async () => {
     let q = supabase
       .from('reservation_details')
       .select(
-        'id, reference, status, start_at, duration_hours, client_name, client_phone, model_name, plate_number, driver_name, with_driver, amount_due, amount_paid, balance',
+        'id, reference, status, start_at, duration_hours, client_name, client_phone, model_name, plate_number, driver_name, with_driver, amount_due, amount_paid, balance, kind, from_zone_name, to_zone_name',
       )
       .limit(500);
     const statuses = FILTERS.find((f) => f.value === filter)?.statuses;
     if (statuses) q = q.in('status', statuses);
+    if (kind !== 'all') q = q.eq('kind', kind);
     // Upcoming first for active ones, most recent first for the rest
     const ascending = filter === 'pending' || filter === 'confirmed' || filter === 'in_progress';
     return unwrap(await q.order('start_at', { ascending })) as Row[];
-  }, [filter]);
+  }, [filter, kind]);
 
   const rows = useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -93,8 +99,17 @@ function ReservationsList() {
   const totalDue = rows.reduce((sum, r) => sum + Math.max(0, r.balance), 0);
 
   return (
-    <Page title="Réservations" subtitle="Toutes les réservations des clients" onRefresh={reload} refreshing={false}>
+    <Page title="Réservations" subtitle="Locations et courses des clients" onRefresh={reload} refreshing={false}>
       <Card>
+        <Choice
+          options={[
+            { value: 'all', label: 'Tout' },
+            { value: 'rental', label: 'Locations' },
+            { value: 'ride', label: 'Courses' },
+          ]}
+          value={kind}
+          onChange={setKind}
+        />
         <Choice options={FILTERS.map((f) => ({ value: f.value, label: f.label }))} value={filter} onChange={setFilter} />
         <View style={ui.wrap}>
           <SearchBox value={search} onChangeText={setSearch} placeholder="Référence, client, téléphone, plaque…" />
@@ -132,8 +147,10 @@ function ReservationsList() {
                       {r.client_name}
                     </Text>
                     <Text style={ui.small} numberOfLines={1}>
+                      {r.kind === 'ride' ? `Course ${r.from_zone_name ?? '?'} → ${r.to_zone_name ?? '?'} · ` : ''}
                       {r.model_name}
-                      {r.plate_number ? ` · ${r.plate_number}` : ''} · {r.duration_hours} h ·{' '}
+                      {r.plate_number ? ` · ${r.plate_number}` : ''}
+                      {r.kind === 'ride' ? '' : ` · ${r.duration_hours} h`} ·{' '}
                       {r.with_driver ? (r.driver_name ?? 'chauffeur à attribuer') : 'sans chauffeur'}
                     </Text>
                   </View>
@@ -144,7 +161,7 @@ function ReservationsList() {
                 </View>
                 <View style={[ui.gapSm, { alignItems: 'flex-end' }]}>
                   <Badge label={st.label} tone={st.tone} />
-                  <Badge label={ps.label} tone={ps.tone} />
+                  {r.kind === 'ride' ? <Badge label="Course" tone="info" /> : <Badge label={ps.label} tone={ps.tone} />}
                 </View>
               </ListRow>
             );
