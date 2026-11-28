@@ -37,7 +37,7 @@ function PartnersList() {
       unwrap(
         await supabase
           .from('partners')
-          .select('profile_id, status, city, drives_self, created_at, profile:profile_id(full_name, phone, email), vehicles:partner_vehicles(status)')
+          .select('profile_id, status, city, drives_self, created_at, profile:profiles!partners_profile_id_fkey(full_name, phone, email), vehicles:partner_vehicles(status)')
           .order('created_at', { ascending: false }),
       ) as unknown as Row[],
     [],

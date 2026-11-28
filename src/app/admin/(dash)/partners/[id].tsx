@@ -90,7 +90,7 @@ function PartnerDetail() {
     const [partner, vehicles, fleet, models, slots] = await Promise.all([
       supabase
         .from('partners')
-        .select('profile_id, status, city, drives_self, license_number, message, review_note, reviewed_at, created_at, profile:profile_id(full_name, phone, email)')
+        .select('profile_id, status, city, drives_self, license_number, message, review_note, reviewed_at, created_at, profile:profiles!partners_profile_id_fkey(full_name, phone, email)')
         .eq('profile_id', id)
         .maybeSingle()
         .then(unwrap),
